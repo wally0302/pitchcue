@@ -1,0 +1,54 @@
+schema: spec-driven
+
+# Project context: shown to AI when creating artifacts.
+context: |
+  專案：PitchCue（repo 名 speak）— 黑客松 / Demo Day 評審 Q&A 即時提詞工具。
+  評審提問 → 手機錄音 → 語音轉文字並整理成問題 → 依專案文件串流生成「重點」與「口語稿」→ 組員手機同步觀看。
+
+  技術棧：
+  - Next.js 16 App Router + React 19 + Tailwind 4 + TypeScript，部署 Vercel（Node 22）。
+  - 主控頁與觀看頁都是 ssr:false 的純客戶端元件（需要麥克風、localStorage、URL 參數）。
+  - OpenAI API（Responses API）：gpt-transcribe 轉錄、gpt-5.6-luna 整理問題（JSON schema 輸出）、gpt-5.6-terra 串流回答。
+  - Upstash Redis（選用）：主控端節流寫入、觀看頁輪詢；沒設定時共享功能靜默關閉。
+  - 專案文件放 data/，prebuild 由 scripts/build-knowledge.mjs 合併成 lib/knowledge.generated.ts，成為固定 system prompt 命中 prompt cache。
+
+  目錄：
+  - app/api/transcribe, app/api/answer, app/api/room, app/api/room/link：API routes
+  - hooks/useRecorder（全域唯一錄音器）、hooks/useQuestions（每題獨立 pipeline + localStorage）、hooks/useRoomSync（主控端→Redis 節流同步）
+  - components/：App、Prep（準備狀態）、ActionBar（閱讀狀態頂端操作列）、Stage、QuestionCard、AnswerView、TopMenu、Viewer（觀看頁）
+  - lib/prompts.ts：所有 prompt；lib/room.ts：Redis 讀寫；lib/auth.ts：密碼與房間代碼檢查
+  - scripts/smoke-ui.mjs：headless Chrome UI smoke test（npm run test:ui，需先 npm run dev）
+
+  硬性約束：
+  - 零閒置流量：不在使用時整個系統不能打任何 API。只有觀看頁會主動輪詢，且必須背景不打、閒置放慢、太久停止、結束本場即停。
+  - 只根據 data/ 文件回答，不捏造數字、客戶、合作對象。
+  - 台上場景優先：手機單手操作、錄音鈕永遠在最上面、閱讀狀態只放大最新一題。
+  - 這版 Next.js 與訓練資料可能不同，改程式前先讀 node_modules/next/dist/docs/。
+
+  語言慣例：UI 文案、註解、commit、spec 內文都用台灣繁體中文；spec 的 Requirement / Scenario / WHEN / THEN / SHALL 關鍵字保持英文。
+
+# Per-artifact rules
+rules:
+  proposal:
+    - 用繁體中文；說明「為什麼現在做」與「不做什麼（Non-goals）」
+    - 若功能會增加任何背景 API 呼叫，必須明確寫出如何符合零閒置流量約束
+  specs:
+    - Requirement 文字用 SHALL；Scenario 用 WHEN / THEN；內文繁體中文
+    - 每個 Requirement 至少一個 Scenario，涵蓋錯誤或降級路徑
+    - 涉及 OpenAI 或 Redis 的需求要寫出未設定 / 失敗時的行為
+  design:
+    - 標明改動落在哪個 hook / route / component；跨 hook 的狀態流用文字時序描述
+    - 若改 prompt，寫出對 prompt cache 命中率的影響
+  tasks:
+    - 每個 task 可在 30 分鐘內完成並可獨立驗證
+    - 改 UI 的 task 要同步更新 scripts/smoke-ui.mjs 的檢查
+
+# Per-operation guidance
+operations:
+  apply:
+    guidance:
+      - 改完 UI 後跑 `npm run dev` + `npm run test:ui` 確認 smoke test 全部通過
+      - 改 API route 或 prompt 後跑 `npm run lint` 與 `npx tsc --noEmit`
+  archive:
+    guidance:
+      - 歸檔前確認 README 的操作說明與實際行為一致
