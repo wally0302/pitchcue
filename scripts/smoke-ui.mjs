@@ -119,9 +119,9 @@ await evaluate(`localStorage.setItem("speak:session", ${JSON.stringify(JSON.stri
 await goto("/");
 check("閱讀狀態：準備區消失", await evaluate(`!document.querySelector('.prep')`));
 check("閱讀狀態：一次顯示所有題目", (await evaluate(`document.querySelectorAll('.card').length`)) === 2);
-check("最新一題有紅頭線、展開、內容正確", await evaluate(`
+check("最新一題有紅頭線、內容正確", await evaluate(`
   const c = document.querySelector('.card-latest');
-  c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'true' && c.textContent.includes('第二題')
+  c && !!c.querySelector('.card-body') && c.textContent.includes('第二題')
 `));
 check("閱讀狀態：頂端操作列有錄音鈕與鍵盤鈕", await evaluate(`!!document.querySelector('.actionbar .btn-record') && !!document.querySelector('.actionbar .key-btn')`));
 check("錄音鈕在畫面上方、夠大、貼著頂欄", await evaluate(`
@@ -155,18 +155,19 @@ check("問題文字是靜態的，點一下才可編輯", await evaluate(`
 check("ready 狀態顯示「生成回答」", await evaluate(`
   const btn = document.querySelector('.card-latest .btn-secondary'); !!btn && !btn.disabled && btn.textContent.includes('生成回答')
 `));
-check("聽不清楚（confidence=low）的題目顯示紅字提示", await evaluate(`!!document.querySelector('.card-latest .hint-warn')`));
+check("聽不清楚（confidence=low）的題目顯示紅字提醒（但不阻擋生成）", await evaluate(`!!document.querySelector('.card-latest .hint-warn')`));
 
-// 歷史預設展開：一進來就看到所有題目（舊題收起）
-check("歷史預設顯示舊題（收起）", await evaluate(`
+// 歷史永遠全部展開：一進來就看到所有題目的完整內容，沒有收起功能
+check("歷史一律全部展開（舊題也有內容區、標題不是按鈕）", await evaluate(`
   document.querySelectorAll('.card').length === 2 &&
-  [...document.querySelectorAll('.card:not(.card-latest) .card-seq')].every(b => b.getAttribute('aria-expanded') === 'false')
+  [...document.querySelectorAll('.card:not(.card-latest)')].every(c => !!c.querySelector('.card-body')) &&
+  ![...document.querySelectorAll('.card-seq')].some(el => el.tagName === 'BUTTON')
 `));
 await evaluate(`document.querySelector('.menu-btn').click()`);
 await sleep(100);
-check("選單有收起歷史／組員觀看連結／清除本場", await evaluate(`
+check("選單有組員觀看連結／清除本場，沒有收起歷史", await evaluate(`
   const t = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
-  t.includes('收起歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
+  !t.includes('收起歷史') && !t.includes('歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
 `));
 // 有設 Redis 時（同步圓點亮著）選單才會有「結束本場」
 check("同步啟用時選單有結束本場", await evaluate(`
@@ -176,21 +177,11 @@ check("同步啟用時選單有結束本場", await evaluate(`
     return synced ? labels.includes('結束本場') : !labels.includes('結束本場');
   })()
 `));
-await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '收起歷史').click()`);
+await evaluate(`document.body.click()`);
 await sleep(100);
-check("收起歷史後只剩最新一題", await evaluate(`document.querySelectorAll('.card').length === 1`));
-await evaluate(`document.querySelector('.menu-btn').click()`);
-await sleep(100);
-await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '歷史').click()`);
-await sleep(100);
-check("再點歷史可重新展開", await evaluate(`document.querySelectorAll('.card').length === 2`));
-check("點舊題可展開並看到螢光筆重點與口語稿", await evaluate(`
-  (() => {
-    document.querySelector('.card:not(.card-latest) .card-seq').click();
-    return new Promise(r => setTimeout(r, 100)).then(() =>
-      document.querySelectorAll('.card:not(.card-latest) .answer .mark').length === 2 &&
-      document.querySelector('.card:not(.card-latest) .answer p')?.textContent === '這是口語稿。');
-  })()
+check("舊題不用點就看到螢光筆重點與口語稿", await evaluate(`
+  document.querySelectorAll('.card:not(.card-latest) .answer .mark').length === 2 &&
+  document.querySelector('.card:not(.card-latest) .answer p')?.textContent === '這是口語稿。'
 `));
 check("只有歷史裡的舊題有刪除鈕", await evaluate(`
   !document.querySelector('.card-latest .btn-text') &&
@@ -212,10 +203,10 @@ await sleep(300);
 check("送出後輸入框關閉、第三題成為最新", await evaluate(`
   !document.querySelector('.sheet') && document.querySelector('.card-latest').textContent.includes('第三題')
 `));
-check("前一題移到歷史並收起", await evaluate(`
+check("前一題移到歷史且仍然展開", await evaluate(`
   (() => {
     const c = [...document.querySelectorAll('.card:not(.card-latest)')].find(c => c.textContent.includes('第二題'));
-    return !!c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'false';
+    return !!c && !!c.querySelector('.card-body');
   })()
 `));
 check(

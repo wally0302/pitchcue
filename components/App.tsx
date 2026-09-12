@@ -30,7 +30,6 @@ function isTypingTarget(el: EventTarget | null) {
 export function App() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState(getAppKey);
-  const [showHistory, setShowHistory] = useState(true);
 
   useEffect(() => {
     const onUnauthorized = () => setNeedKey(true);
@@ -113,7 +112,6 @@ export function App() {
   }, [rec, q, latest]);
 
   const menu: MenuItem[] = [
-    ...(reading ? [{ label: showHistory ? "收起歷史" : "歷史", onSelect: () => setShowHistory((h) => !h) }] : []),
     { label: "組員觀看連結", onSelect: () => void showShareLink() },
     // 有共享在跑（不是未啟用／未同步／已結束）才需要「結束本場」
     ...(reading && (sync.state === "idle" || sync.state === "syncing" || sync.state === "error")
@@ -125,10 +123,7 @@ export function App() {
             label: "清除本場",
             danger: true,
             onSelect: () => {
-              if (confirm("確定清除本場所有問答紀錄？")) {
-                q.clear();
-                setShowHistory(false);
-              }
+              if (confirm("確定清除本場所有問答紀錄？")) q.clear();
             },
           },
         ]
@@ -204,7 +199,6 @@ export function App() {
       {reading ? (
         <Stage
           items={q.items}
-          showHistory={showHistory}
           emptyText=""
           onAnswer={(id) => void q.answer(id)}
           onAbort={q.abort}

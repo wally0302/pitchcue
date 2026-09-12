@@ -179,8 +179,7 @@ export function useQuestions() {
             phase: undefined,
           },
         });
-        // 聽不清楚（low）就停在這裡讓人確認或重錄，不要對著錯的問題生出一篇稿
-        if (data.confidence === "low") return id;
+        // 不管辨識信心高低都直接生成，上台時沒時間再確認；卡片只用一行提示提醒對一下問題
         // 直接帶入整理好的問題與序號，不依賴 itemsRef 是否已更新
         void answer(id, data.question, item.seq);
       } catch (e) {

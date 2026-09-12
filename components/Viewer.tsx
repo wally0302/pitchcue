@@ -29,7 +29,6 @@ export function Viewer() {
   const [conn, setConn] = useState<Conn>("connecting");
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [now, setNow] = useState(0);
-  const [showHistory, setShowHistory] = useState(true);
   const vRef = useRef(-1);
 
   // 輪詢（setTimeout 鏈，不用 setInterval：每次跑完才決定下一次多久之後、要不要繼續）
@@ -201,7 +200,6 @@ export function Viewer() {
         <span className="flex-1" />
         <TopMenu
           items={[
-            { label: showHistory ? "收起歷史" : "歷史", onSelect: () => setShowHistory((h) => !h) },
             ...(conn === "unauthorized" ? [{ label: "重新輸入代碼", onSelect: () => setCode("") }] : []),
           ]}
         />
@@ -210,7 +208,6 @@ export function Viewer() {
       <div className="mt-2">
         <Stage
           items={items}
-          showHistory={showHistory}
           readOnly
           emptyText="等待主控端開始錄音。評審的問題和生成的回答會即時出現在這裡。"
         />
