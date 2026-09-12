@@ -129,7 +129,7 @@ export function App() {
   return (
     <main className="page">
       <header className="topbar">
-        <h1>同問同答</h1>
+        <h1>PitchCue</h1>
         <span className="status" title={sync.error ?? dot.title} aria-label={dot.title}>
           {dot.dot !== "none" && <span className={`dot dot-${dot.dot}`} aria-hidden />}
         </span>

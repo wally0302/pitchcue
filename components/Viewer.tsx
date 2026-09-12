@@ -89,7 +89,7 @@ export function Viewer() {
     return (
       <main className="page">
         <header className="topbar">
-          <h1>同問同答 · 組員觀看</h1>
+          <h1>PitchCue · 組員觀看</h1>
         </header>
         <div className="card">
           <p className="mb-2 text-sm text-ink-2">輸入房間代碼（主控端按「組員觀看連結」可以看到）：</p>
@@ -137,7 +137,7 @@ export function Viewer() {
   return (
     <main className="page page-reading">
       <header className="topbar">
-        <h1>同問同答 · 組員觀看</h1>
+        <h1>PitchCue · 組員觀看</h1>
         <span
           className={`status ${connLabel[conn].error ? "status-error" : ""}`}
           title={ago !== null ? `更新於 ${ago} 秒前` : undefined}
