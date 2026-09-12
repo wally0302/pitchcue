@@ -6,7 +6,7 @@ import { QuestionCard } from "@/components/QuestionCard";
 
 type Props = {
   items: QuestionItem[];
-  /** 是否展開舊題清單（由 ⋯ 選單的「歷史」切換） */
+  /** 是否顯示舊題清單（預設開啟，可由 ⋯ 選單的「收起歷史」關掉） */
   showHistory: boolean;
   emptyText: string;
   readOnly?: boolean;
@@ -22,15 +22,19 @@ export function latestOf(items: QuestionItem[]): QuestionItem | null {
 
 /**
  * 閱讀畫面：主控頁與觀看頁共用。
- * 平常只顯示最新一題佔滿畫面；「歷史」打開才把舊題（收起）列在下面。
+ * 最新一題在最上面，舊題（收起）依序列在下面，一眼看到整場所有題目；「收起歷史」可只留最新一題。
  */
 export function Stage({ items, showHistory, emptyText, readOnly, onAnswer, onAbort, onChangeQuestion, onRemove }: Props) {
   const latest = latestOf(items);
   const historyRef = useRef<HTMLParagraphElement>(null);
+  const prevShowHistory = useRef(showHistory);
 
-  // 最新一題通常佔滿一屏，歷史打開時把清單捲進視野
+  // 從「收起」切回「顯示」時把清單捲進視野；初次載入不捲，讓最新一題留在最上面
   useEffect(() => {
-    if (showHistory) historyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (showHistory && !prevShowHistory.current) {
+      historyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    prevShowHistory.current = showHistory;
   }, [showHistory]);
 
   if (!latest) return <p className="empty">{emptyText}</p>;

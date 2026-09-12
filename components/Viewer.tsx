@@ -24,7 +24,7 @@ export function Viewer() {
   const [conn, setConn] = useState<Conn>("connecting");
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [now, setNow] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const vRef = useRef(-1);
 
   // 輪詢

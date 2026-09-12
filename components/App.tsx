@@ -30,7 +30,7 @@ function isTypingTarget(el: EventTarget | null) {
 export function App() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState(getAppKey);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
 
   useEffect(() => {
     const onUnauthorized = () => setNeedKey(true);

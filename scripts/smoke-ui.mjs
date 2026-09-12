@@ -103,7 +103,7 @@ check(
 await evaluate(`localStorage.setItem("speak:session", ${JSON.stringify(JSON.stringify(seed))})`);
 await goto("/");
 check("閱讀狀態：準備區消失", await evaluate(`!document.querySelector('.prep')`));
-check("閱讀狀態：只顯示最新一題", (await evaluate(`document.querySelectorAll('.card').length`)) === 1);
+check("閱讀狀態：一次顯示所有題目", (await evaluate(`document.querySelectorAll('.card').length`)) === 2);
 check("最新一題有紅頭線、展開、內容正確", await evaluate(`
   const c = document.querySelector('.card-latest');
   c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'true' && c.textContent.includes('第二題')
@@ -129,19 +129,25 @@ check("ready 狀態顯示「生成回答」", await evaluate(`
   const btn = document.querySelector('.card-latest .btn-secondary'); !!btn && !btn.disabled && btn.textContent.includes('生成回答')
 `));
 
-// ⋯ 選單 → 歷史
-await evaluate(`document.querySelector('.menu-btn').click()`);
-await sleep(100);
-check("選單有歷史／組員觀看連結／清除本場", await evaluate(`
-  const t = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
-  t.includes('歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
-`));
-await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '歷史').click()`);
-await sleep(100);
-check("歷史展開後顯示舊題（收起）", await evaluate(`
+// 歷史預設展開：一進來就看到所有題目（舊題收起）
+check("歷史預設顯示舊題（收起）", await evaluate(`
   document.querySelectorAll('.card').length === 2 &&
   [...document.querySelectorAll('.card:not(.card-latest) .card-seq')].every(b => b.getAttribute('aria-expanded') === 'false')
 `));
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+check("選單有收起歷史／組員觀看連結／清除本場", await evaluate(`
+  const t = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
+  t.includes('收起歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
+`));
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '收起歷史').click()`);
+await sleep(100);
+check("收起歷史後只剩最新一題", await evaluate(`document.querySelectorAll('.card').length === 1`));
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '歷史').click()`);
+await sleep(100);
+check("再點歷史可重新展開", await evaluate(`document.querySelectorAll('.card').length === 2`));
 check("點舊題可展開並看到螢光筆重點與口語稿", await evaluate(`
   (() => {
     document.querySelector('.card:not(.card-latest) .card-seq').click();
