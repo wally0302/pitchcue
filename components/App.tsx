@@ -17,6 +17,7 @@ const SYNC_DOT: Record<SyncState, { title: string; dot: "live" | "tally" | "idle
   idle: { title: "組員已同步", dot: "live" },
   syncing: { title: "同步中…", dot: "idle" },
   error: { title: "同步失敗，重試中", dot: "tally" },
+  closed: { title: "組員共享：已結束（再錄下一題會自動重新開啟）", dot: "none" },
 };
 
 function isTypingTarget(el: EventTarget | null) {
@@ -58,6 +59,12 @@ export function App() {
     } catch (e) {
       setShareMsg(`取得連結失敗：${(e as Error).message}`);
     }
+  };
+  const endSession = async () => {
+    if (!confirm("結束本場？組員的觀看頁會停止同步（紀錄會保留，之後再錄下一題會自動重新開啟）")) return;
+    setShareUrl(null);
+    const ok = await sync.closeRoom();
+    setShareMsg(ok ? "已結束：組員觀看頁會在幾秒內停止同步。" : "結束失敗，請再試一次。");
   };
   const copyShare = async () => {
     if (!shareUrl) return;
@@ -108,6 +115,10 @@ export function App() {
   const menu: MenuItem[] = [
     ...(reading ? [{ label: showHistory ? "收起歷史" : "歷史", onSelect: () => setShowHistory((h) => !h) }] : []),
     { label: "組員觀看連結", onSelect: () => void showShareLink() },
+    // 有共享在跑（不是未啟用／未同步／已結束）才需要「結束本場」
+    ...(reading && (sync.state === "idle" || sync.state === "syncing" || sync.state === "error")
+      ? [{ label: "結束本場", onSelect: () => void endSession() }]
+      : []),
     ...(reading
       ? [
           {

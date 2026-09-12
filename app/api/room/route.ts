@@ -28,7 +28,7 @@ export async function GET(req: Request) {
   }
 }
 
-/** 主控端同步：{ upserts, removed, clear } */
+/** 主控端同步：{ upserts, removed, clear, close } */
 export async function POST(req: Request) {
   const denied = checkAuth(req);
   if (denied) return denied;
@@ -44,8 +44,9 @@ export async function POST(req: Request) {
     upserts: Array.isArray(body.upserts) ? body.upserts : [],
     removed: Array.isArray(body.removed) ? body.removed : [],
     clear: body.clear === true,
+    close: body.close === true,
   };
-  if (!payload.clear && !payload.upserts!.length && !payload.removed!.length) {
+  if (!payload.clear && !payload.close && !payload.upserts!.length && !payload.removed!.length) {
     return Response.json({ error: "empty" }, { status: 400 });
   }
   try {

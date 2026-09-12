@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { QuestionItem } from "@/lib/types";
 import { apiFetch } from "@/lib/client";
 
-export type SyncState = "unknown" | "off" | "idle" | "syncing" | "error";
+export type SyncState = "unknown" | "off" | "idle" | "syncing" | "error" | "closed";
 
 const THROTTLE_MS = 400;
 
@@ -12,6 +12,7 @@ const THROTTLE_MS = 400;
  * 主控端 → Redis 單向同步。
  * 每次 items 變動算出差異，400ms 節流合併送出；狀態變更立即送。
  * 後端回 503（未設定 Redis）就永久關閉。
+ * closeRoom()：通知組員頁停止輪詢；之後 items 再變動會自動重新開啟房間。
  */
 export function useRoomSync(items: QuestionItem[]) {
   const [state, setState] = useState<SyncState>("unknown");
@@ -24,7 +25,41 @@ export function useRoomSync(items: QuestionItem[]) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflightRef = useRef(false);
   const offRef = useRef(false);
+  const closedRef = useRef(false);
   const hadItemsRef = useRef(false);
+
+  const closeRoom = useCallback(async (): Promise<boolean> => {
+    if (offRef.current) return false;
+    // 丟掉還沒送出的變動：結束就是結束，不要在 close 之後又補送一包把房間重新打開
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    pendingUpsertsRef.current.clear();
+    pendingRemovedRef.current.clear();
+    pendingClearRef.current = false;
+    try {
+      const res = await apiFetch("/api/room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ close: true }),
+      });
+      if (res.status === 503) {
+        offRef.current = true;
+        setState("off");
+        return false;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      closedRef.current = true;
+      setError(null);
+      setState("closed");
+      return true;
+    } catch (e) {
+      setError((e as Error).message);
+      setState("error");
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (offRef.current) return;
@@ -38,6 +73,7 @@ export function useRoomSync(items: QuestionItem[]) {
       if (!upserts.length && !removed.length && !clear) return;
 
       inflightRef.current = true;
+      closedRef.current = false; // 任何寫入都會讓後端重新開啟房間
       setState("syncing");
       try {
         const res = await apiFetch("/api/room", {
@@ -64,7 +100,8 @@ export function useRoomSync(items: QuestionItem[]) {
         }
         if (clear) pendingClearRef.current = false;
         setError(null);
-        setState("idle");
+        // 若這包送出後使用者已按了結束（closeRoom 先回來），維持「已結束」
+        setState(closedRef.current ? "closed" : "idle");
       } catch (e) {
         setError((e as Error).message);
         setState("error");
@@ -138,5 +175,5 @@ export function useRoomSync(items: QuestionItem[]) {
     []
   );
 
-  return { state, error };
+  return { state, error, closeRoom };
 }

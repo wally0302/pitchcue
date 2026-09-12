@@ -85,7 +85,7 @@ const goto = async (path) => {
   await send("Page.navigate", { url: BASE + path }, s);
   for (let i = 0; i < 60; i++) {
     await sleep(250);
-    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .viewer, form')`)) break;
+    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .page-reading, .card .text-input')`)) break;
   }
   await sleep(300);
 };
@@ -99,7 +99,7 @@ const seed = [
     question: "第一題",
     answer: "## 重點\n- 重點一\n- 重點二\n\n## 口語稿\n這是口語稿。",
   },
-  { id: "b", seq: 2, createdAt: 2, status: "ready", question: "第二題", answer: "" },
+  { id: "b", seq: 2, createdAt: 2, status: "ready", question: "第二題", answer: "", confidence: "low" },
 ];
 
 // 主控頁：準備狀態（沒有題目）
@@ -155,6 +155,7 @@ check("問題文字是靜態的，點一下才可編輯", await evaluate(`
 check("ready 狀態顯示「生成回答」", await evaluate(`
   const btn = document.querySelector('.card-latest .btn-secondary'); !!btn && !btn.disabled && btn.textContent.includes('生成回答')
 `));
+check("聽不清楚（confidence=low）的題目顯示紅字提示", await evaluate(`!!document.querySelector('.card-latest .hint-warn')`));
 
 // 歷史預設展開：一進來就看到所有題目（舊題收起）
 check("歷史預設顯示舊題（收起）", await evaluate(`
@@ -166,6 +167,14 @@ await sleep(100);
 check("選單有收起歷史／組員觀看連結／清除本場", await evaluate(`
   const t = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
   t.includes('收起歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
+`));
+// 有設 Redis 時（同步圓點亮著）選單才會有「結束本場」
+check("同步啟用時選單有結束本場", await evaluate(`
+  (() => {
+    const synced = !!document.querySelector('.topbar .dot-live');
+    const labels = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
+    return synced ? labels.includes('結束本場') : !labels.includes('結束本場');
+  })()
 `));
 await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '收起歷史').click()`);
 await sleep(100);
@@ -220,6 +229,56 @@ check("觀看頁：房間代碼表單", await evaluate(`!!document.querySelector
 await goto("/view?code=smoke-test");
 check("觀看頁：有代碼時顯示連線狀態", await evaluate(`!!document.querySelector('.topbar .status')`));
 check("觀看頁：也有 ⋯ 選單", await evaluate(`!!document.querySelector('.topbar .menu-btn')`));
+
+// 流量保護：代碼錯（401）打一次就停，不會每秒繼續打
+// （dev 模式 React StrictMode 會把 effect 掛兩次，所以開頭最多 2 次；重點是之後不再增加）
+const roomCalls = () => evaluate(`performance.getEntriesByType('resource').filter(e => e.name.includes('/api/room')).length`);
+const callsAfterFirst = await roomCalls();
+await sleep(3000);
+const callsLater = await roomCalls();
+check("觀看頁：代碼錯誤顯示提示", await evaluate(`document.querySelector('.topbar .status').textContent.includes('房間代碼錯誤')`));
+check(
+  "觀看頁：代碼錯誤後不再輪詢",
+  callsAfterFirst >= 1 && callsAfterFirst <= 2 && callsLater === callsAfterFirst,
+  `first=${callsAfterFirst} later=${callsLater}`
+);
+
+// 正確代碼（沒設 ROOM_CODE 時預設 demo）：要持續輪詢，約每秒一次
+// 先把房間清空並打開（上一輪測試收尾會把房間關掉）；沒設 Redis 時後端回 503，後面跟 Redis 有關的檢查略過
+const post = (body) =>
+  evaluate(`fetch('/api/room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ${JSON.stringify(JSON.stringify(body))} }).then(r => r.status)`);
+const roomStatus = await post({ clear: true });
+await goto("/view?code=" + encodeURIComponent(process.env.ROOM_CODE ?? "demo"));
+await sleep(500); // 等新頁面真的載入（goto 的選擇器可能先對到舊頁面）
+const before = await roomCalls();
+await sleep(4000);
+const delta = (await roomCalls()) - before;
+const liveStatus = await evaluate(`document.querySelector('.topbar .status').textContent`);
+if (roomStatus === 503) {
+  console.log("skip 觀看頁輪詢／結束本場（未設定 Redis）");
+} else {
+  check("觀看頁：正確代碼持續輪詢（4 秒內 2～5 次）", delta >= 2 && delta <= 5, `delta=${delta} status=${liveStatus}`);
+
+  // 結束本場：主控端 POST close → 觀看頁停止輪詢，內容留在畫面上；主控端再寫入 + 點畫面 → 重新連線
+  await post({ upserts: [seed[0]] });
+  await sleep(2000);
+  check("觀看頁：收到主控端寫入的題目", await evaluate(`document.body.textContent.includes('第一題')`));
+  check("主控端：close 回 200", (await post({ close: true })) === 200);
+  await sleep(2500);
+  const closedCalls = await roomCalls();
+  check("觀看頁：收到結束後顯示提示、內容仍在", await evaluate(`
+    document.querySelector('.topbar .status').textContent.includes('已結束') && document.body.textContent.includes('第一題')
+  `));
+  await sleep(3000);
+  check("觀看頁：結束後不再輪詢", (await roomCalls()) === closedCalls, `before=${closedCalls} after=${await roomCalls()}`);
+  await post({ upserts: [seed[1]] }); // 主控端再錄一題 → 房間自動重開
+  await evaluate(`window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 'ok'`);
+  await sleep(2000);
+  check("觀看頁：點畫面後重新連線並看到新題", await evaluate(`
+    document.querySelector('.topbar .status').textContent.includes('即時同步中') && document.body.textContent.includes('第二題')
+  `));
+  await post({ clear: true, close: true }); // 收尾：清空測試資料並關閉房間
+}
 
 check("沒有 console error / 未捕捉例外", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));
 
