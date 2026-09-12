@@ -14,6 +14,8 @@ export type QuestionItem = {
   raw?: string;
   /** 整理後的問題（可編輯） */
   question: string;
+  /** 整理模型對「這是不是評審的問題」的信心；low 不會自動生成回答 */
+  confidence?: "high" | "medium" | "low";
   /** 串流累積的回答（markdown） */
   answer: string;
   error?: string;

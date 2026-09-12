@@ -460,6 +460,16 @@
     font-size: 14px;
     color: var(--color-ink-2);
   }
+  .hint {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-ink-2);
+  }
+  .hint-warn {
+    color: var(--color-tally);
+    font-weight: 500;
+  }
 
   /* 回答：重點畫螢光筆，口語稿放大成可念的段落 */
   .answer h2 {

@@ -62,6 +62,9 @@ export function QuestionCard({
   }
 
   const showRaw = item.raw && item.raw !== item.question;
+  // 整理模型聽不清楚：low 停在待回答讓人決定；medium 照常生成但提醒對一下問題
+  const unclear = item.status === "ready" && !item.answer && item.confidence === "low";
+  const unsure = item.confidence === "medium" && item.status !== "error";
 
   return (
     <section className={`card ${latest ? "card-latest" : ""}`}>
@@ -124,6 +127,12 @@ export function QuestionCard({
             <p className="question-static">{item.question || "（尚無內容）"}</p>
           )}
           {showRaw && <p className="raw">原始逐字稿：{item.raw}</p>}
+          {unclear && (
+            <p className="hint hint-warn">
+              沒聽清楚評審在問什麼。點問題文字修改後按「生成回答」，或按上方「錄下一題」、對著手機複述一次評審的問題。
+            </p>
+          )}
+          {unsure && !unclear && <p className="hint">整理時不太確定，講之前先對一下問題是不是評審問的。</p>}
 
           {item.error && <p className="status status-error mt-2">{item.error}</p>}
 

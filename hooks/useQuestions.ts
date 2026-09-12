@@ -163,12 +163,24 @@ export function useQuestions() {
         fd.append("ext", ext);
         const res = await apiFetch("/api/transcribe", { method: "POST", body: fd });
         if (!res.ok) throw new Error(await readErrorMessage(res));
-        const data = (await res.json()) as { raw: string; question: string };
+        const data = (await res.json()) as {
+          raw: string;
+          question: string;
+          confidence?: QuestionItem["confidence"];
+        };
         dispatch({
           type: "patch",
           id,
-          patch: { raw: data.raw, question: data.question, status: "ready", phase: undefined },
+          patch: {
+            raw: data.raw,
+            question: data.question,
+            confidence: data.confidence,
+            status: "ready",
+            phase: undefined,
+          },
         });
+        // 聽不清楚（low）就停在這裡讓人確認或重錄，不要對著錯的問題生出一篇稿
+        if (data.confidence === "low") return id;
         // 直接帶入整理好的問題與序號，不依賴 itemsRef 是否已更新
         void answer(id, data.question, item.seq);
       } catch (e) {
@@ -201,7 +213,8 @@ export function useQuestions() {
   );
 
   const setQuestion = useCallback((id: string, question: string) => {
-    dispatch({ type: "patch", id, patch: { question } });
+    // 人改過的問題就是確定的，把「不確定」提示拿掉
+    dispatch({ type: "patch", id, patch: { question, confidence: undefined } });
   }, []);
 
   const abort = useCallback((id: string) => {

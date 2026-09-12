@@ -43,3 +43,7 @@ writeFileSync(outFile, out, "utf8");
 console.log(
   `[knowledge] ${files.length} 份文件 (${(knowledge.length / 1000).toFixed(1)}k 字元), ${glossary.length} 個詞彙 → lib/knowledge.generated.ts`
 );
+// 上台前最容易漏掉的一件事：真實資料還沒放進來
+if (files.length === 0 || (files.length === 1 && files[0] === "example.md")) {
+  console.warn("[knowledge] 警告：data/ 只有範例文件，AI 不知道你的專案。把 data/templates/ 複製出來填好再上台。");
+}
