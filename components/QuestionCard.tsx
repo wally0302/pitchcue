@@ -23,6 +23,14 @@ const STATUS_LABEL: Record<QuestionItem["status"], string> = {
   error: "錯誤",
 };
 
+function Chevron() {
+  return (
+    <svg viewBox="0 0 12 12" fill="none" aria-hidden>
+      <path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function QuestionCard({
   item,
   latest,
@@ -32,96 +40,98 @@ export function QuestionCard({
   onChangeQuestion,
   onRemove,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!latest);
+  const [wasLatest, setWasLatest] = useState(latest);
   const busy = item.status === "transcribing" || item.status === "answering";
   const canAnswer = item.status !== "transcribing" && item.question.trim().length > 0;
 
+  // 新題進來時，舊題自動收起，手機上一屏看得到當前題
+  if (wasLatest !== latest) {
+    setWasLatest(latest);
+    if (!latest) setCollapsed(true);
+  }
+
+  const showRaw = item.raw && item.raw !== item.question;
+
   return (
-    <section
-      className={`card ${busy ? "card-busy" : ""} ${latest ? "card-latest" : ""} ${
-        item.status === "error" ? "card-error" : ""
-      }`}
-    >
-      <header className="flex items-center gap-3 mb-3">
+    <section className={`card ${latest ? "card-latest" : ""}`}>
+      <header className="card-head">
         <button
           type="button"
-          className="text-2xl font-bold tracking-wide text-amber-300 hover:text-amber-200"
+          className="card-seq"
+          aria-expanded={!collapsed}
           onClick={() => setCollapsed((c) => !c)}
-          title={collapsed ? "展開" : "摺疊"}
         >
-          Q{item.seq} {collapsed ? "▸" : "▾"}
+          Q{item.seq}
+          <Chevron />
         </button>
-        <span className={`badge badge-${item.status}`}>{item.phase ?? STATUS_LABEL[item.status]}</span>
-        {busy && <span className="spinner" aria-hidden />}
+        <span className={`status ${item.status === "error" ? "status-error" : ""}`}>
+          {busy && <span className="spinner" aria-hidden />}
+          {item.phase ?? STATUS_LABEL[item.status]}
+        </span>
+        {collapsed && item.question && (
+          <span className="truncate text-sm text-ink-2 min-w-0">{item.question}</span>
+        )}
         <span className="flex-1" />
         {!readOnly && onRemove && (
-          <button type="button" className="btn-ghost text-sm" onClick={() => onRemove(item.id)} title="刪除這題">
+          <button type="button" className="btn-text" onClick={() => onRemove(item.id)}>
             刪除
           </button>
         )}
       </header>
 
       {!collapsed && (
-        <>
+        <div className="card-body">
           {item.status === "transcribing" ? (
-            <p className="text-xl text-zinc-300">正在把評審的問題轉成文字…</p>
+            <p className="text-ink-2">正在把評審的問題轉成文字…</p>
           ) : readOnly ? (
-            <>
-              <p className="text-sm text-zinc-400 mb-1">評審提問</p>
-              <p className="question-static">{item.question || "（尚無內容）"}</p>
-              {item.raw && item.raw !== item.question && (
-                <p className="text-sm text-zinc-500 mt-1">原始逐字稿：{item.raw}</p>
-              )}
-            </>
+            <p className="question-static">{item.question || "（尚無內容）"}</p>
           ) : (
+            <textarea
+              className="question-input"
+              value={item.question}
+              rows={2}
+              placeholder="評審提問，可直接修改"
+              onChange={(e) => onChangeQuestion?.(item.id, e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canAnswer) {
+                  e.preventDefault();
+                  onAnswer?.(item.id);
+                }
+              }}
+            />
+          )}
+          {showRaw && <p className="raw">原始逐字稿：{item.raw}</p>}
+
+          {item.error && <p className="status status-error mt-2">{item.error}</p>}
+
+          {(item.answer || item.status === "answering") && (
             <>
-              <label className="block text-sm text-zinc-400 mb-1">評審提問（可直接修改）</label>
-              <textarea
-                className="question-input"
-                value={item.question}
-                rows={2}
-                onChange={(e) => onChangeQuestion?.(item.id, e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canAnswer) {
-                    e.preventDefault();
-                    onAnswer?.(item.id);
-                  }
-                }}
-              />
-              {item.raw && item.raw !== item.question && (
-                <p className="text-sm text-zinc-500 mt-1">原始逐字稿：{item.raw}</p>
-              )}
+              <hr className="card-rule" />
+              <AnswerView markdown={item.answer} streaming={item.status === "answering"} />
             </>
           )}
 
-          {item.error && <p className="text-red-300 text-lg mt-2">⚠ {item.error}</p>}
-
           {!readOnly && (
-            <div className="flex flex-wrap items-center gap-3 mt-3">
+            <div className="mt-4">
               {item.status === "answering" ? (
-                <button type="button" className="btn btn-danger" onClick={() => onAbort?.(item.id)}>
-                  ■ 停止
+                <button type="button" className="btn btn-danger w-full sm:w-auto" onClick={() => onAbort?.(item.id)}>
+                  停止
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary w-full sm:w-auto"
                   disabled={!canAnswer}
                   onClick={() => onAnswer?.(item.id)}
                 >
-                  {item.status === "done" || item.status === "error" ? "↻ 重新回答" : "▶ 回答"}
-                  <span className="kbd">⌘/Ctrl + Enter</span>
+                  {item.status === "done" || item.status === "error" ? "重新生成" : "生成回答"}
+                  <span className="kbd">⌘ Enter</span>
                 </button>
               )}
             </div>
           )}
-
-          {(item.answer || item.status === "answering") && (
-            <div className="mt-4">
-              <AnswerView markdown={item.answer} streaming={item.status === "answering"} />
-            </div>
-          )}
-        </>
+        </div>
       )}
     </section>
   );

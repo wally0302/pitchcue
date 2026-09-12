@@ -4,15 +4,19 @@ import ReactMarkdown from "react-markdown";
 
 export function AnswerView({ markdown, streaming }: { markdown: string; streaming: boolean }) {
   if (!markdown && streaming) {
-    return <p className="text-zinc-400 text-xl animate-pulse">思考中…</p>;
+    return <p className="text-ink-2">思考中…</p>;
   }
   return (
-    <div className="answer">
+    <div className={`answer ${streaming ? "streaming" : ""}`}>
       <ReactMarkdown
         components={{
           h2: ({ children }) => <h2>{children}</h2>,
           ul: ({ children }) => <ul>{children}</ul>,
-          li: ({ children }) => <li>{children}</li>,
+          li: ({ children }) => (
+            <li>
+              <span className="mark">{children}</span>
+            </li>
+          ),
           p: ({ children }) => <p>{children}</p>,
         }}
       >

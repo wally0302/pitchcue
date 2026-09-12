@@ -8,12 +8,12 @@ import { useQuestions } from "@/hooks/useQuestions";
 import { useRoomSync, type SyncState } from "@/hooks/useRoomSync";
 import { apiFetch, getAppKey, setAppKey, UNAUTHORIZED_EVENT } from "@/lib/client";
 
-const SYNC_LABEL: Record<SyncState, { text: string; cls: string }> = {
-  unknown: { text: "組員共享：待同步", cls: "badge-ready" },
-  off: { text: "組員共享：未啟用", cls: "" },
-  idle: { text: "● 組員已同步", cls: "badge-done" },
-  syncing: { text: "同步中…", cls: "badge-answering" },
-  error: { text: "同步失敗，重試中", cls: "badge-error" },
+const SYNC_LABEL: Record<SyncState, { text: string; dot: "live" | "tally" | "none"; error?: boolean }> = {
+  unknown: { text: "待同步", dot: "none" },
+  off: { text: "未共享", dot: "none" },
+  idle: { text: "組員已同步", dot: "live" },
+  syncing: { text: "同步中…", dot: "none" },
+  error: { text: "同步失敗，重試中", dot: "tally", error: true },
 };
 
 const AUTO_KEY = "speak:autoAnswer";
@@ -121,20 +121,25 @@ export function App() {
 
   return (
     <main className="page">
-      <header className="flex items-baseline gap-4 mb-4">
-        <h1 className="text-2xl font-bold text-amber-300">同問同答 · 評審 Q&amp;A 助手</h1>
-        <span className="text-zinc-500 text-sm">錄音 → 看懂問題 → 按回答 → 照著講</span>
-        <span className="flex-1" />
-        <span className={`badge ${SYNC_LABEL[sync.state].cls}`} title={sync.error ?? undefined}>
+      <header className="topbar">
+        <h1>同問同答</h1>
+        <span
+          className={`status ${SYNC_LABEL[sync.state].error ? "status-error" : ""}`}
+          title={sync.error ?? undefined}
+        >
+          {SYNC_LABEL[sync.state].dot !== "none" && (
+            <span className={`dot dot-${SYNC_LABEL[sync.state].dot}`} aria-hidden />
+          )}
           {SYNC_LABEL[sync.state].text}
         </span>
-        <button type="button" className="btn-ghost text-sm" onClick={() => void showShareLink()}>
+        <span className="flex-1" />
+        <button type="button" className="btn-text" onClick={() => void showShareLink()}>
           組員觀看連結
         </button>
         {q.items.length > 0 && (
           <button
             type="button"
-            className="btn-ghost text-sm"
+            className="btn-text"
             onClick={() => {
               if (confirm("確定清除本場所有問答紀錄？")) q.clear();
             }}
@@ -145,17 +150,17 @@ export function App() {
       </header>
 
       {(shareUrl || shareMsg) && (
-        <div className="toolbar mb-3">
+        <div className="card mb-3 text-sm">
           {shareUrl && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-zinc-300">組員請開：</span>
-              <code className="text-amber-200 break-all select-all">{shareUrl}</code>
-              <button type="button" className="btn-ghost text-sm" onClick={() => void copyShare()}>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-ink-2">組員請開這個連結：</span>
+              <code className="break-all select-all">{shareUrl}</code>
+              <button type="button" className="btn-text" onClick={() => void copyShare()}>
                 複製
               </button>
               <button
                 type="button"
-                className="btn-ghost text-sm"
+                className="btn-text"
                 onClick={() => {
                   setShareUrl(null);
                   setShareMsg(null);
@@ -165,13 +170,13 @@ export function App() {
               </button>
             </div>
           )}
-          {shareMsg && <p className="text-zinc-300 mt-1">{shareMsg}</p>}
+          {shareMsg && <p className="text-ink-2 mt-1">{shareMsg}</p>}
         </div>
       )}
 
       {needKey && (
-        <div className="toolbar mb-3 border-amber-500/60">
-          <p className="text-amber-200 mb-2">這個服務有設定密碼，請輸入後再重試：</p>
+        <div className="card mb-3">
+          <p className="text-sm text-ink-2 mb-2">這個服務有設定密碼，輸入後才能送出：</p>
           <div className="flex gap-2">
             <input
               type="password"
@@ -202,10 +207,10 @@ export function App() {
         onWarmup={q.warmup}
       />
 
-      <div className="mt-6 flex flex-col gap-5">
+      <div className="mt-4 flex flex-col gap-3">
         {ordered.length === 0 && (
-          <p className="text-zinc-500 text-lg text-center py-10">
-            上台前先按「準備麥克風」與「暖機」。評審開始講話時按 Space 或「開始錄音」。
+          <p className="empty">
+            上台前先按「準備麥克風」和「暖機」。評審開口時按「開始錄音」，講完按停止，問題會轉成文字、再生成重點與口語稿。
           </p>
         )}
         {ordered.map((item) => (

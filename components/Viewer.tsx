@@ -89,9 +89,11 @@ export function Viewer() {
   if (!code) {
     return (
       <main className="page">
-        <h1 className="text-2xl font-bold text-amber-300 mb-4">同問同答 · 組員觀看</h1>
-        <div className="toolbar">
-          <p className="mb-2 text-zinc-300">請輸入房間代碼（主控端按「組員觀看連結」可以看到）：</p>
+        <header className="topbar">
+          <h1>同問同答 · 組員觀看</h1>
+        </header>
+        <div className="card">
+          <p className="mb-2 text-sm text-ink-2">輸入房間代碼（主控端按「組員觀看連結」可以看到）：</p>
           <div className="flex gap-2">
             <input
               className="text-input flex-1"
@@ -124,34 +126,35 @@ export function Viewer() {
     setCode(c);
   }
 
-  const connLabel: Record<Conn, { text: string; cls: string }> = {
-    connecting: { text: "連線中…", cls: "badge-ready" },
-    live: { text: "● 即時同步中", cls: "badge-done" },
-    retrying: { text: "連線中斷，重試中…", cls: "badge-error" },
-    unauthorized: { text: "房間代碼錯誤", cls: "badge-error" },
-    off: { text: "主控端尚未啟用共享（未設定 Redis）", cls: "badge-error" },
+  const connLabel: Record<Conn, { text: string; live?: boolean; error?: boolean }> = {
+    connecting: { text: "連線中…" },
+    live: { text: "即時同步中", live: true },
+    retrying: { text: "連線中斷，重試中…", error: true },
+    unauthorized: { text: "房間代碼錯誤", error: true },
+    off: { text: "主控端尚未啟用共享", error: true },
   };
   const ago = lastUpdate && now ? Math.max(0, Math.round((now - lastUpdate) / 1000)) : null;
 
   return (
     <main className="page">
-      <header className="flex flex-wrap items-center gap-3 mb-4">
-        <h1 className="text-2xl font-bold text-amber-300">同問同答 · 組員觀看</h1>
-        <span className={`badge ${connLabel[conn].cls}`}>{connLabel[conn].text}</span>
-        {ago !== null && <span className="text-zinc-500 text-sm">更新於 {ago} 秒前</span>}
+      <header className="topbar flex-wrap">
+        <h1>同問同答 · 組員觀看</h1>
+        <span className={`status ${connLabel[conn].error ? "status-error" : ""}`}>
+          {connLabel[conn].live && <span className="dot dot-live" aria-hidden />}
+          {connLabel[conn].text}
+        </span>
+        {ago !== null && <span className="status">更新於 {ago} 秒前</span>}
         <span className="flex-1" />
         {conn === "unauthorized" && (
-          <button type="button" className="btn-ghost text-sm" onClick={() => setCode("")}>
+          <button type="button" className="btn-text" onClick={() => setCode("")}>
             重新輸入代碼
           </button>
         )}
       </header>
 
-      <div className="flex flex-col gap-5">
+      <div className="mt-2 flex flex-col gap-3">
         {ordered.length === 0 && (
-          <p className="text-zinc-500 text-lg text-center py-10">
-            等待主控端開始錄音…評審問題與 AI 回答會即時出現在這裡。
-          </p>
+          <p className="empty">等待主控端開始錄音。評審的問題和生成的回答會即時出現在這裡。</p>
         )}
         {ordered.map((item) => (
           <QuestionCard key={item.id} item={item} latest={latest?.id === item.id} readOnly />
