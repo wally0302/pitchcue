@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "knowledge": "node scripts/build-knowledge.mjs"
+    "knowledge": "node scripts/build-knowledge.mjs",
+    "test:ui": "node scripts/smoke-ui.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.4",
