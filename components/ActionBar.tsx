@@ -28,10 +28,11 @@ function KeyboardIcon() {
 }
 
 /**
- * 閱讀狀態的浮動操作區（右下角、拇指區）：
- * 大顆「錄下一題」一按就錄；旁邊的鍵盤鈕是麥克風壞掉時的打字備援。
+ * 閱讀狀態的操作列：貼在畫面最上方，往下捲也跟著。
+ * 一顆錄音鈕負責開始與停止（位置不動，手指不用找），旁邊的鍵盤鈕是麥克風壞掉時的打字備援，
+ * 輸入框從這排底下展開，所有操作都集中在同一個地方。
  */
-export function Dock({ rec, onSubmitText }: Props) {
+export function ActionBar({ rec, onSubmitText }: Props) {
   const [sheet, setSheet] = useState(false);
   const [text, setText] = useState("");
 
@@ -44,7 +45,40 @@ export function Dock({ rec, onSubmitText }: Props) {
   };
 
   return (
-    <>
+    <div className="actionbar">
+      <div className="actionbar-row">
+        <button
+          type="button"
+          className={`btn btn-record ${rec.recording ? "recording" : ""}`}
+          disabled={!rec.supported}
+          onClick={rec.toggle}
+        >
+          {rec.recording ? (
+            <>
+              <span className="dot" aria-hidden />
+              停止 {fmtSeconds(rec.seconds)}
+            </>
+          ) : (
+            <>
+              <MicIcon />
+              錄下一題
+              {rec.supported && !rec.ready && <span className="rec-badge">需授權</span>}
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          className="key-btn"
+          aria-label="打字輸入問題"
+          aria-expanded={sheet}
+          onClick={() => setSheet((s) => !s)}
+        >
+          <KeyboardIcon />
+        </button>
+      </div>
+
+      {rec.error && <p className="status status-error mt-2">{rec.error}</p>}
+
       {sheet && (
         <div className="sheet" role="dialog" aria-label="打字輸入問題">
           <textarea
@@ -72,39 +106,6 @@ export function Dock({ rec, onSubmitText }: Props) {
           </div>
         </div>
       )}
-
-      <div className="dock">
-        {rec.error && <p className="dock-error">{rec.error}</p>}
-        <div className="dock-row">
-          <button
-            type="button"
-            className="dock-key"
-            aria-label="打字輸入問題"
-            onClick={() => setSheet((s) => !s)}
-          >
-            <KeyboardIcon />
-          </button>
-          <button
-            type="button"
-            className={`fab ${rec.recording ? "recording" : ""}`}
-            disabled={!rec.supported}
-            onClick={rec.toggle}
-          >
-            {rec.recording ? (
-              <>
-                <span className="dot" aria-hidden />
-                停止 {fmtSeconds(rec.seconds)}
-              </>
-            ) : (
-              <>
-                <MicIcon />
-                錄下一題
-                {rec.supported && !rec.ready && <span className="fab-badge">需授權</span>}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }

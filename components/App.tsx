@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Prep } from "@/components/Prep";
-import { Dock } from "@/components/Dock";
+import { ActionBar } from "@/components/ActionBar";
 import { Stage, latestOf } from "@/components/Stage";
 import { TopMenu, type MenuItem } from "@/components/TopMenu";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useRoomSync, type SyncState } from "@/hooks/useRoomSync";
 import { apiFetch, getAppKey, setAppKey, UNAUTHORIZED_EVENT } from "@/lib/client";
-import { fmtSeconds } from "@/lib/format";
 
 // 同步狀態只用一顆小圓點表示，文字放在 title 裡
 const SYNC_DOT: Record<SyncState, { title: string; dot: "live" | "tally" | "idle" | "none" }> = {
@@ -128,7 +127,7 @@ export function App() {
   const dot = SYNC_DOT[sync.state];
 
   return (
-    <main className={`page ${reading ? "page-reading" : ""}`}>
+    <main className="page">
       <header className="topbar">
         <h1>同問同答</h1>
         <span className="status" title={sync.error ?? dot.title} aria-label={dot.title}>
@@ -138,16 +137,8 @@ export function App() {
         <TopMenu items={menu} />
       </header>
 
-      {reading && rec.recording && (
-        <div className="recbar" role="status">
-          <span className="dot" aria-hidden />
-          <span className="recbar-label">錄音中 {fmtSeconds(rec.seconds)}</span>
-          <span className="flex-1" />
-          <button type="button" className="btn btn-primary recbar-stop" onClick={rec.stop}>
-            停止
-          </button>
-        </div>
-      )}
+      {/* 錄音鈕固定在最上面：開始／停止同一顆、同一個位置，打字備援也從這排展開 */}
+      {reading && <ActionBar rec={rec} onSubmitText={(t) => void q.addFromText(t)} />}
 
       {(shareUrl || shareMsg) && (
         <div className="card mb-3 text-sm">
@@ -200,21 +191,18 @@ export function App() {
       )}
 
       {reading ? (
-        <>
-          <Stage
-            items={q.items}
-            showHistory={showHistory}
-            emptyText=""
-            onAnswer={(id) => void q.answer(id)}
-            onAbort={q.abort}
-            onChangeQuestion={q.setQuestion}
-            onRemove={(id) => {
-              const it = q.items.find((x) => x.id === id);
-              if (confirm(`刪除 Q${it?.seq ?? ""}？`)) q.remove(id);
-            }}
-          />
-          <Dock rec={rec} onSubmitText={(t) => void q.addFromText(t)} />
-        </>
+        <Stage
+          items={q.items}
+          showHistory={showHistory}
+          emptyText=""
+          onAnswer={(id) => void q.answer(id)}
+          onAbort={q.abort}
+          onChangeQuestion={q.setQuestion}
+          onRemove={(id) => {
+            const it = q.items.find((x) => x.id === id);
+            if (confirm(`刪除 Q${it?.seq ?? ""}？`)) q.remove(id);
+          }}
+        />
       ) : (
         <Prep rec={rec} onSubmitText={(t) => void q.addFromText(t)} onWarmup={q.warmup} />
       )}

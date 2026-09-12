@@ -23,6 +23,16 @@ function check(name, ok, detail = "") {
   if (!ok) failures++;
 }
 
+// evaluate 丟例外時也要把 Chrome 關掉，不然下次跑會接到這隻殘留的（連同它的 localStorage）
+process.on("uncaughtException", (e) => {
+  console.error(e);
+  chrome.once("exit", () => {
+    rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
+    process.exit(1);
+  });
+  chrome.kill();
+});
+
 let ver;
 for (let i = 0; i < 40 && !ver; i++) {
   try {
@@ -70,9 +80,14 @@ const evaluate = async (expression) => {
   if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
   return result.result.value;
 };
+// App 是 ssr:false 的客戶端元件，dev server 重新編譯時可能要好幾秒才掛上，等到畫面真的出來再往下跑
 const goto = async (path) => {
   await send("Page.navigate", { url: BASE + path }, s);
-  await sleep(2000);
+  for (let i = 0; i < 60; i++) {
+    await sleep(250);
+    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .viewer, form')`)) break;
+  }
+  await sleep(300);
 };
 
 const seed = [
@@ -91,7 +106,7 @@ const seed = [
 await goto("/");
 check("準備狀態：大顆錄音鈕", await evaluate(`!!document.querySelector('.prep .btn-record')`));
 check("準備狀態：說明文案", await evaluate(`!!document.querySelector('.prep .empty')`));
-check("準備狀態：沒有浮動操作區", await evaluate(`!document.querySelector('.dock')`));
+check("準備狀態：沒有頂端操作列", await evaluate(`!document.querySelector('.actionbar')`));
 check("沒有自動回答開關", await evaluate(`!document.querySelector('input[type=checkbox]')`));
 check(
   "手機寬度沒有水平溢出",
@@ -108,11 +123,23 @@ check("最新一題有紅頭線、展開、內容正確", await evaluate(`
   const c = document.querySelector('.card-latest');
   c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'true' && c.textContent.includes('第二題')
 `));
-check("閱讀狀態：浮動錄音鈕與鍵盤鈕", await evaluate(`!!document.querySelector('.dock .fab') && !!document.querySelector('.dock .dock-key')`));
-check("浮動錄音鈕在拇指區（右下角、避開底部）", await evaluate(`
-  const r = document.querySelector('.dock .fab').getBoundingClientRect();
-  r.height >= 56 && r.right <= window.innerWidth && r.bottom <= window.innerHeight - 8
+check("閱讀狀態：頂端操作列有錄音鈕與鍵盤鈕", await evaluate(`!!document.querySelector('.actionbar .btn-record') && !!document.querySelector('.actionbar .key-btn')`));
+check("錄音鈕在畫面上方、夠大、貼著頂欄", await evaluate(`
+  const r = document.querySelector('.actionbar .btn-record').getBoundingClientRect();
+  const tb = document.querySelector(".topbar").getBoundingClientRect();
+  r.height >= 48 && r.top >= tb.bottom && r.top < 120 && r.width >= window.innerWidth * 0.6
 `));
+check("錄音鈕往下捲後仍固定在頂端", await evaluate(`
+  (() => {
+    window.scrollTo(0, 600);
+    return new Promise(r => setTimeout(r, 100)).then(() => {
+      const r = document.querySelector('.actionbar .btn-record').getBoundingClientRect();
+      window.scrollTo(0, 0);
+      return r.top >= 0 && r.top < 80;
+    });
+  })()
+`));
+check("沒有右下角浮動鈕", await evaluate(`!document.querySelector('.dock, .fab, .recbar')`));
 check("沒有鍵盤提示標籤", await evaluate(`!document.querySelector('.kbd')`));
 check("問題文字是靜態的，點一下才可編輯", await evaluate(`
   (() => {
@@ -161,10 +188,10 @@ check("只有歷史裡的舊題有刪除鈕", await evaluate(`
   !!document.querySelector('.card:not(.card-latest) .btn-text')
 `));
 
-// 鍵盤鈕 → 底部輸入框 → 送出新題
-await evaluate(`document.querySelector('.dock-key').click()`);
+// 鍵盤鈕 → 操作列底下展開輸入框 → 送出新題
+await evaluate(`document.querySelector('.key-btn').click()`);
 await sleep(100);
-check("鍵盤鈕打開輸入框", await evaluate(`!!document.querySelector('.sheet textarea')`));
+check("鍵盤鈕在操作列底下打開輸入框", await evaluate(`!!document.querySelector('.actionbar .sheet textarea')`));
 await evaluate(`
   const input = document.querySelector('.sheet textarea');
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;

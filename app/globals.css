@@ -45,7 +45,7 @@
   .page {
     max-width: 720px;
     margin: 0 auto;
-    padding: 12px 16px 96px;
+    padding: 12px 16px 48px;
   }
 
   .topbar {
@@ -108,10 +108,6 @@
     color: var(--color-ink-2);
   }
 
-  /* 閱讀狀態：底部留出浮動操作區的空間（含手機 safe-area） */
-  .page-reading {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom));
-  }
   .section-label {
     margin-top: 8px;
     font-size: 13px;
@@ -120,99 +116,37 @@
     letter-spacing: 0.04em;
   }
 
-  /* 錄音中：貼齊頂端的窄列，底下的答案不蓋掉 */
-  .recbar {
+  /* 閱讀狀態的操作列：貼齊頂端、往下捲也跟著；錄音的開始／停止都是同一顆鈕 */
+  .actionbar {
     position: sticky;
     top: 0;
     z-index: 20;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 -16px 10px;
-    padding: 8px 16px;
-    background: var(--color-ink);
-    color: var(--color-paper);
-    font-weight: 700;
-  }
-  .recbar .dot {
-    width: 12px;
-    height: 12px;
-    background: var(--color-tally);
-    animation: rec-pulse 1s ease-in-out infinite;
-  }
-  .recbar-stop {
-    background: var(--color-paper);
-    color: var(--color-ink);
-    min-height: 44px;
-    padding: 8px 22px;
-  }
-  .recbar-stop:hover:not(:disabled) {
+    margin: 0 -16px 12px;
+    padding: 6px 16px 10px;
     background: var(--color-ground);
+    border-bottom: 1px solid var(--color-rule);
   }
-
-  /* 浮動操作區：右下角拇指區 */
-  .dock {
-    position: fixed;
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    z-index: 30;
+  .actionbar-row {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-    max-width: calc(100vw - 32px);
-  }
-  .dock-row {
-    display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 10px;
   }
-  .dock-error {
-    max-width: 20em;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: var(--color-paper);
-    border: 1px solid var(--color-tally);
-    color: var(--color-tally);
-    font-size: 13px;
-  }
-  .fab {
+  .actionbar .btn-record {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 60px;
-    padding: 0 22px 0 18px;
-    border: 0;
-    border-radius: 30px;
-    background: var(--color-tally);
-    color: var(--color-paper);
+    flex: 1;
+    width: auto;
+    min-height: 52px;
     font-size: 18px;
-    font-weight: 800;
-    box-shadow: 0 6px 18px rgba(23, 24, 26, 0.25);
-    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(213, 39, 31, 0.28);
   }
-  .fab svg {
+  .actionbar .btn-record.recording {
+    box-shadow: none;
+  }
+  .actionbar .btn-record svg {
     width: 22px;
     height: 22px;
   }
-  .fab:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-  .fab:disabled {
-    opacity: 0.4;
-  }
-  .fab.recording {
-    background: var(--color-ink);
-  }
-  .fab.recording .dot {
-    width: 12px;
-    height: 12px;
-    background: var(--color-tally);
-    animation: rec-pulse 1s ease-in-out infinite;
-  }
-  .fab-badge {
+  .rec-badge {
     position: absolute;
     top: -8px;
     right: -4px;
@@ -224,44 +158,35 @@
     font-size: 11px;
     font-weight: 700;
   }
-  .dock-key {
+  .key-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    width: 52px;
+    flex: none;
+    border-radius: 8px;
     border: 1px solid var(--color-rule);
     background: var(--color-paper);
     color: var(--color-ink-2);
-    box-shadow: 0 4px 12px rgba(23, 24, 26, 0.15);
     cursor: pointer;
   }
-  .dock-key svg {
+  .key-btn:hover,
+  .key-btn[aria-expanded="true"] {
+    color: var(--color-ink);
+    border-color: var(--color-ink-2);
+  }
+  .key-btn svg {
     width: 22px;
     height: 22px;
   }
 
-  /* 打字備援：底部彈出的輸入框 */
+  /* 打字備援：從操作列底下展開的輸入框 */
   .sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
-    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    margin-top: 10px;
+    padding: 12px;
     background: var(--color-paper);
-    border-top: 1px solid var(--color-rule);
-    box-shadow: 0 -8px 24px rgba(23, 24, 26, 0.12);
-  }
-  @media (min-width: 640px) {
-    .sheet {
-      left: 50%;
-      right: auto;
-      width: 720px;
-      transform: translateX(-50%);
-      border-radius: 12px 12px 0 0;
-    }
+    border: 1px solid var(--color-rule);
+    border-radius: 8px;
   }
 
   /* ⋯ 選單 */
@@ -602,8 +527,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .btn-record.recording .dot,
-  .recbar .dot,
-  .fab.recording .dot,
   .answer .cursor,
   .spinner,
   .card-seq svg {
