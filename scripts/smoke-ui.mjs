@@ -87,55 +87,94 @@ const seed = [
   { id: "b", seq: 2, createdAt: 2, status: "ready", question: "第二題", answer: "" },
 ];
 
-// 主控頁：空狀態
+// 主控頁：準備狀態（沒有題目）
 await goto("/");
-check("主控頁載入", await evaluate(`!!document.querySelector('.btn-record')`));
-check("空狀態文案顯示", await evaluate(`!!document.querySelector('.empty')`));
+check("準備狀態：大顆錄音鈕", await evaluate(`!!document.querySelector('.prep .btn-record')`));
+check("準備狀態：說明文案", await evaluate(`!!document.querySelector('.prep .empty')`));
+check("準備狀態：沒有浮動操作區", await evaluate(`!document.querySelector('.dock')`));
+check("沒有自動回答開關", await evaluate(`!document.querySelector('input[type=checkbox]')`));
 check(
   "手機寬度沒有水平溢出",
   await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`),
   await evaluate(`document.documentElement.scrollWidth + ' > ' + window.innerWidth`)
 );
 
-// 主控頁：有資料
+// 主控頁：閱讀狀態（有題目）
 await evaluate(`localStorage.setItem("speak:session", ${JSON.stringify(JSON.stringify(seed))})`);
 await goto("/");
-check("兩張卡片渲染", (await evaluate(`document.querySelectorAll('.card').length`)) === 2);
-check("最新一題有紅頭線且展開", await evaluate(`
+check("閱讀狀態：準備區消失", await evaluate(`!document.querySelector('.prep')`));
+check("閱讀狀態：只顯示最新一題", (await evaluate(`document.querySelectorAll('.card').length`)) === 1);
+check("最新一題有紅頭線、展開、內容正確", await evaluate(`
   const c = document.querySelector('.card-latest');
   c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'true' && c.textContent.includes('第二題')
 `));
-check("舊題預設摺疊", await evaluate(`
+check("閱讀狀態：浮動錄音鈕與鍵盤鈕", await evaluate(`!!document.querySelector('.dock .fab') && !!document.querySelector('.dock .dock-key')`));
+check("浮動錄音鈕在拇指區（右下角、避開底部）", await evaluate(`
+  const r = document.querySelector('.dock .fab').getBoundingClientRect();
+  r.height >= 56 && r.right <= window.innerWidth && r.bottom <= window.innerHeight - 8
+`));
+check("沒有鍵盤提示標籤", await evaluate(`!document.querySelector('.kbd')`));
+check("問題文字是靜態的，點一下才可編輯", await evaluate(`
+  (() => {
+    const b = document.querySelector('.card-latest .question-tap');
+    if (!b) return false;
+    b.click();
+    return new Promise(r => setTimeout(r, 100)).then(() => {
+      const ta = document.querySelector('.card-latest textarea.question-input');
+      return !!ta && ta.value === '第二題';
+    });
+  })()
+`));
+check("ready 狀態顯示「生成回答」", await evaluate(`
+  const btn = document.querySelector('.card-latest .btn-secondary'); !!btn && !btn.disabled && btn.textContent.includes('生成回答')
+`));
+
+// ⋯ 選單 → 歷史
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+check("選單有歷史／組員觀看連結／清除本場", await evaluate(`
+  const t = [...document.querySelectorAll('.menu-item')].map(b => b.textContent);
+  t.includes('歷史') && t.includes('組員觀看連結') && t.includes('清除本場')
+`));
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent === '歷史').click()`);
+await sleep(100);
+check("歷史展開後顯示舊題（收起）", await evaluate(`
+  document.querySelectorAll('.card').length === 2 &&
   [...document.querySelectorAll('.card:not(.card-latest) .card-seq')].every(b => b.getAttribute('aria-expanded') === 'false')
 `));
 check("點舊題可展開並看到螢光筆重點與口語稿", await evaluate(`
-  const b = document.querySelector('.card:not(.card-latest) .card-seq'); b.click();
-  new Promise(r => setTimeout(r, 100)).then(() =>
-    document.querySelectorAll('.card:not(.card-latest) .answer .mark').length === 2 &&
-    document.querySelector('.card:not(.card-latest) .answer p')?.textContent === '這是口語稿。')
+  (() => {
+    document.querySelector('.card:not(.card-latest) .card-seq').click();
+    return new Promise(r => setTimeout(r, 100)).then(() =>
+      document.querySelectorAll('.card:not(.card-latest) .answer .mark').length === 2 &&
+      document.querySelector('.card:not(.card-latest) .answer p')?.textContent === '這是口語稿。');
+  })()
 `));
-check("生成回答按鈕在最新一題可按", await evaluate(`
-  const btn = document.querySelector('.card-latest .btn-primary'); !!btn && !btn.disabled && btn.textContent.includes('生成回答')
+check("只有歷史裡的舊題有刪除鈕", await evaluate(`
+  !document.querySelector('.card-latest .btn-text') &&
+  !!document.querySelector('.card:not(.card-latest) .btn-text')
 `));
 
-// 打字送出新題 → 舊的最新題自動收起
+// 鍵盤鈕 → 底部輸入框 → 送出新題
+await evaluate(`document.querySelector('.dock-key').click()`);
+await sleep(100);
+check("鍵盤鈕打開輸入框", await evaluate(`!!document.querySelector('.sheet textarea')`));
 await evaluate(`
-  const input = document.querySelector('.controls .text-input');
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  const input = document.querySelector('.sheet textarea');
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
   setter.call(input, '第三題');
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 `);
 await sleep(300);
-check("打字送出後新增第三題並成為最新", await evaluate(`
-  document.querySelectorAll('.card').length === 3 && document.querySelector('.card-latest').textContent.includes('第三題')
+check("送出後輸入框關閉、第三題成為最新", await evaluate(`
+  !document.querySelector('.sheet') && document.querySelector('.card-latest').textContent.includes('第三題')
 `));
-check("前一題自動摺疊", await evaluate(`
-  [...document.querySelectorAll('.card')].find(c => c.textContent.includes('第二題'))
-    .querySelector('.card-seq').getAttribute('aria-expanded') === 'false'
-`));
-check("新題的問題文字框可編輯", await evaluate(`
-  const ta = document.querySelector('.card-latest textarea.question-input'); !!ta && ta.value === '第三題'
+check("前一題移到歷史並收起", await evaluate(`
+  (() => {
+    const c = [...document.querySelectorAll('.card:not(.card-latest)')].find(c => c.textContent.includes('第二題'));
+    return !!c && c.querySelector('.card-seq').getAttribute('aria-expanded') === 'false';
+  })()
 `));
 check(
   "有資料時手機寬度沒有水平溢出",
@@ -147,16 +186,16 @@ await goto("/view");
 check("觀看頁：房間代碼表單", await evaluate(`!!document.querySelector('.card .text-input')`));
 await goto("/view?code=smoke-test");
 check("觀看頁：有代碼時顯示連線狀態", await evaluate(`!!document.querySelector('.topbar .status')`));
-
-// 桌機寬度
-await send("Emulation.setDeviceMetricsOverride", { width: 1024, height: 800, deviceScaleFactor: 1, mobile: false }, s);
-await goto("/");
-check("桌機顯示鍵盤提示", await evaluate(`getComputedStyle(document.querySelector('.btn-record .kbd')).display !== 'none'`));
+check("觀看頁：也有 ⋯ 選單", await evaluate(`!!document.querySelector('.topbar .menu-btn')`));
 
 check("沒有 console error / 未捕捉例外", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));
 
 ws.close();
-chrome.kill();
-rmSync(profile, { recursive: true, force: true });
+// 等 Chrome 真的結束再刪 profile，否則會撞到它還在寫檔
+await new Promise((r) => {
+  chrome.once("exit", r);
+  chrome.kill();
+});
+rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
 console.log(failures ? `\n${failures} 項失敗` : "\n全部通過");
 process.exit(failures ? 1 : 0);

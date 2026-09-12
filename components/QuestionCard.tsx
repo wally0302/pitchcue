@@ -9,9 +9,12 @@ type Props = {
   latest: boolean;
   /** 觀看頁：只顯示，不能操作 */
   readOnly?: boolean;
+  /** 預設是否收起（歷史清單裡的舊題收起，最新一題展開） */
+  defaultCollapsed?: boolean;
   onAnswer?: (id: string) => void;
   onAbort?: (id: string) => void;
   onChangeQuestion?: (id: string, q: string) => void;
+  /** 只有歷史清單會傳入；台上的最新一題沒有刪除鈕 */
   onRemove?: (id: string) => void;
 };
 
@@ -35,20 +38,27 @@ export function QuestionCard({
   item,
   latest,
   readOnly = false,
+  defaultCollapsed = false,
   onAnswer,
   onAbort,
   onChangeQuestion,
   onRemove,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(!latest);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [wasLatest, setWasLatest] = useState(latest);
+  // 問題文字平常是靜態的，點一下才變成可編輯，避免手機誤觸跳出鍵盤
+  const [editing, setEditing] = useState(false);
   const busy = item.status === "transcribing" || item.status === "answering";
   const canAnswer = item.status !== "transcribing" && item.question.trim().length > 0;
+  const canEdit = !readOnly && !!onChangeQuestion && item.status !== "transcribing";
 
-  // 新題進來時，舊題自動收起，手機上一屏看得到當前題
+  // 新題進來時，舊題自動收起、結束編輯
   if (wasLatest !== latest) {
     setWasLatest(latest);
-    if (!latest) setCollapsed(true);
+    if (!latest) {
+      setCollapsed(true);
+      setEditing(false);
+    }
   }
 
   const showRaw = item.raw && item.raw !== item.question;
@@ -84,22 +94,34 @@ export function QuestionCard({
         <div className="card-body">
           {item.status === "transcribing" ? (
             <p className="text-ink-2">正在把評審的問題轉成文字…</p>
-          ) : readOnly ? (
-            <p className="question-static">{item.question || "（尚無內容）"}</p>
-          ) : (
+          ) : editing && canEdit ? (
             <textarea
               className="question-input"
               value={item.question}
               rows={2}
-              placeholder="評審提問，可直接修改"
+              autoFocus
+              placeholder="評審提問"
               onChange={(e) => onChangeQuestion?.(item.id, e.target.value)}
+              onBlur={() => setEditing(false)}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canAnswer) {
                   e.preventDefault();
+                  setEditing(false);
                   onAnswer?.(item.id);
                 }
               }}
             />
+          ) : canEdit ? (
+            <button
+              type="button"
+              className="question-static question-tap"
+              title="點一下修改問題"
+              onClick={() => setEditing(true)}
+            >
+              {item.question || "（點一下輸入問題）"}
+            </button>
+          ) : (
+            <p className="question-static">{item.question || "（尚無內容）"}</p>
           )}
           {showRaw && <p className="raw">原始逐字稿：{item.raw}</p>}
 
@@ -121,12 +143,14 @@ export function QuestionCard({
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary w-full sm:w-auto"
+                  className="btn btn-secondary btn-sm"
                   disabled={!canAnswer}
-                  onClick={() => onAnswer?.(item.id)}
+                  onClick={() => {
+                    setEditing(false);
+                    onAnswer?.(item.id);
+                  }}
                 >
-                  {item.status === "done" || item.status === "error" ? "重新生成" : "生成回答"}
-                  <span className="kbd">⌘ Enter</span>
+                  {item.status === "ready" ? "生成回答" : "重新生成"}
                 </button>
               )}
             </div>

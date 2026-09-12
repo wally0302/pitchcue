@@ -59,10 +59,9 @@ function loadSaved(): QuestionItem[] {
   }
 }
 
-export function useQuestions(opts: { autoAnswer: boolean }) {
+export function useQuestions() {
   const [items, dispatch] = useReducer(reducer, undefined, loadSaved);
   const itemsRef = useRef<QuestionItem[]>(items);
-  const autoAnswerRef = useRef(opts.autoAnswer);
   const controllersRef = useRef<Map<string, AbortController>>(new Map());
   const seqRef = useRef(items.reduce((m, it) => Math.max(m, it.seq), 0));
 
@@ -72,10 +71,6 @@ export function useQuestions(opts: { autoAnswer: boolean }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch {}
   }, [items]);
-
-  useEffect(() => {
-    autoAnswerRef.current = opts.autoAnswer;
-  }, [opts.autoAnswer]);
 
   const nextSeq = () => {
     seqRef.current += 1;
@@ -138,7 +133,7 @@ export function useQuestions(opts: { autoAnswer: boolean }) {
     }
   }, []);
 
-  /** 錄音結束 → 新卡片 → 獨立 pipeline（轉錄 → 整理 → 視設定自動回答） */
+  /** 錄音結束 → 新卡片 → 獨立 pipeline（轉錄 → 整理 → 自動回答） */
   const addFromAudio = useCallback(
     async (blob: Blob, ext: string) => {
       const id = newId();
@@ -174,10 +169,8 @@ export function useQuestions(opts: { autoAnswer: boolean }) {
           id,
           patch: { raw: data.raw, question: data.question, status: "ready", phase: undefined },
         });
-        if (autoAnswerRef.current) {
-          // 直接帶入整理好的問題與序號，不依賴 itemsRef 是否已更新
-          void answer(id, data.question, item.seq);
-        }
+        // 直接帶入整理好的問題與序號，不依賴 itemsRef 是否已更新
+        void answer(id, data.question, item.seq);
       } catch (e) {
         dispatch({
           type: "patch",
@@ -190,7 +183,7 @@ export function useQuestions(opts: { autoAnswer: boolean }) {
     [answer]
   );
 
-  /** 打字輸入 → 直接 ready */
+  /** 打字輸入 → 直接開始回答 */
   const addFromText = useCallback(
     (text: string) => {
       const q = text.trim();
@@ -201,7 +194,7 @@ export function useQuestions(opts: { autoAnswer: boolean }) {
         type: "add",
         item: { id, seq, createdAt: Date.now(), status: "ready", question: q, answer: "" },
       });
-      if (autoAnswerRef.current) void answer(id, q, seq);
+      void answer(id, q, seq);
       return id;
     },
     [answer]

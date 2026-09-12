@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { QuestionItem } from "@/lib/types";
-import { QuestionCard } from "@/components/QuestionCard";
+import { Stage } from "@/components/Stage";
+import { TopMenu } from "@/components/TopMenu";
 
 const POLL_MS = 1000;
 
@@ -23,6 +24,7 @@ export function Viewer() {
   const [conn, setConn] = useState<Conn>("connecting");
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
   const vRef = useRef(-1);
 
   // 輪詢
@@ -83,9 +85,6 @@ export function Viewer() {
     return () => clearInterval(id);
   }, []);
 
-  const ordered = [...items].sort((a, b) => b.seq - a.seq);
-  const latest = items.reduce<QuestionItem | null>((m, it) => (!m || it.seq > m.seq ? it : m), null);
-
   if (!code) {
     return (
       <main className="page">
@@ -136,29 +135,32 @@ export function Viewer() {
   const ago = lastUpdate && now ? Math.max(0, Math.round((now - lastUpdate) / 1000)) : null;
 
   return (
-    <main className="page">
-      <header className="topbar flex-wrap">
+    <main className="page page-reading">
+      <header className="topbar">
         <h1>同問同答 · 組員觀看</h1>
-        <span className={`status ${connLabel[conn].error ? "status-error" : ""}`}>
+        <span
+          className={`status ${connLabel[conn].error ? "status-error" : ""}`}
+          title={ago !== null ? `更新於 ${ago} 秒前` : undefined}
+        >
           {connLabel[conn].live && <span className="dot dot-live" aria-hidden />}
           {connLabel[conn].text}
         </span>
-        {ago !== null && <span className="status">更新於 {ago} 秒前</span>}
         <span className="flex-1" />
-        {conn === "unauthorized" && (
-          <button type="button" className="btn-text" onClick={() => setCode("")}>
-            重新輸入代碼
-          </button>
-        )}
+        <TopMenu
+          items={[
+            { label: showHistory ? "收起歷史" : "歷史", onSelect: () => setShowHistory((h) => !h) },
+            ...(conn === "unauthorized" ? [{ label: "重新輸入代碼", onSelect: () => setCode("") }] : []),
+          ]}
+        />
       </header>
 
-      <div className="mt-2 flex flex-col gap-3">
-        {ordered.length === 0 && (
-          <p className="empty">等待主控端開始錄音。評審的問題和生成的回答會即時出現在這裡。</p>
-        )}
-        {ordered.map((item) => (
-          <QuestionCard key={item.id} item={item} latest={latest?.id === item.id} readOnly />
-        ))}
+      <div className="mt-2">
+        <Stage
+          items={items}
+          showHistory={showHistory}
+          readOnly
+          emptyText="等待主控端開始錄音。評審的問題和生成的回答會即時出現在這裡。"
+        />
       </div>
     </main>
   );

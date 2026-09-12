@@ -2,20 +2,13 @@
 
 import { useState } from "react";
 import type { RecorderApi } from "@/hooks/useRecorder";
+import { fmtSeconds } from "@/lib/format";
 
 type Props = {
   rec: RecorderApi;
-  autoAnswer: boolean;
-  onAutoAnswerChange: (v: boolean) => void;
   onSubmitText: (text: string) => void;
   onWarmup: () => Promise<void>;
 };
-
-function fmt(s: number) {
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
-}
 
 const WARM_LABEL = {
   idle: "暖機",
@@ -24,7 +17,8 @@ const WARM_LABEL = {
   fail: "暖機失敗，再試一次",
 } as const;
 
-export function Recorder({ rec, autoAnswer, onAutoAnswerChange, onSubmitText, onWarmup }: Props) {
+/** 準備狀態：還沒有任何題目時的畫面。上台前授權麥克風、暖機，評審開口就按錄音。 */
+export function Prep({ rec, onSubmitText, onWarmup }: Props) {
   const [text, setText] = useState("");
   const [warm, setWarm] = useState<keyof typeof WARM_LABEL>("idle");
 
@@ -46,7 +40,7 @@ export function Recorder({ rec, autoAnswer, onAutoAnswerChange, onSubmitText, on
   };
 
   return (
-    <div className="controls">
+    <div className="prep">
       <button
         type="button"
         className={`btn btn-record ${rec.recording ? "recording" : ""}`}
@@ -54,11 +48,10 @@ export function Recorder({ rec, autoAnswer, onAutoAnswerChange, onSubmitText, on
         onClick={rec.toggle}
       >
         <span className="dot" aria-hidden />
-        {rec.recording ? `停止錄音 ${fmt(rec.seconds)}` : "開始錄音"}
-        <span className="kbd">Space</span>
+        {rec.recording ? `停止錄音 ${fmtSeconds(rec.seconds)}` : "開始錄音"}
       </button>
 
-      <div className="controls-row">
+      <div className="prep-row">
         {!rec.supported ? (
           <span className="status status-error">此瀏覽器不支援錄音，請改用下方打字輸入</span>
         ) : rec.ready ? (
@@ -81,16 +74,6 @@ export function Recorder({ rec, autoAnswer, onAutoAnswerChange, onSubmitText, on
         >
           {WARM_LABEL[warm]}
         </button>
-
-        <label className="flex items-center gap-2 cursor-pointer select-none ml-auto">
-          <input
-            type="checkbox"
-            className="w-4 h-4 accent-ink"
-            checked={autoAnswer}
-            onChange={(e) => onAutoAnswerChange(e.target.checked)}
-          />
-          轉錄後自動回答
-        </label>
       </div>
 
       {rec.error && <p className="status status-error mt-2">{rec.error}</p>}
@@ -113,6 +96,10 @@ export function Recorder({ rec, autoAnswer, onAutoAnswerChange, onSubmitText, on
           送出
         </button>
       </div>
+
+      <p className="empty">
+        上台前先按「準備麥克風」和「暖機」。評審開口時按「開始錄音」，講完按停止，問題會轉成文字、自動生成重點與口語稿。
+      </p>
     </div>
   );
 }

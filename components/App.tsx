@@ -1,22 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Recorder } from "@/components/Recorder";
-import { QuestionCard } from "@/components/QuestionCard";
+import { Prep } from "@/components/Prep";
+import { Dock } from "@/components/Dock";
+import { Stage, latestOf } from "@/components/Stage";
+import { TopMenu, type MenuItem } from "@/components/TopMenu";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useRoomSync, type SyncState } from "@/hooks/useRoomSync";
 import { apiFetch, getAppKey, setAppKey, UNAUTHORIZED_EVENT } from "@/lib/client";
+import { fmtSeconds } from "@/lib/format";
 
-const SYNC_LABEL: Record<SyncState, { text: string; dot: "live" | "tally" | "none"; error?: boolean }> = {
-  unknown: { text: "待同步", dot: "none" },
-  off: { text: "未共享", dot: "none" },
-  idle: { text: "組員已同步", dot: "live" },
-  syncing: { text: "同步中…", dot: "none" },
-  error: { text: "同步失敗，重試中", dot: "tally", error: true },
+// 同步狀態只用一顆小圓點表示，文字放在 title 裡
+const SYNC_DOT: Record<SyncState, { title: string; dot: "live" | "tally" | "idle" | "none" }> = {
+  unknown: { title: "組員共享：待同步", dot: "none" },
+  off: { title: "組員共享：未啟用", dot: "none" },
+  idle: { title: "組員已同步", dot: "live" },
+  syncing: { title: "同步中…", dot: "idle" },
+  error: { title: "同步失敗，重試中", dot: "tally" },
 };
-
-const AUTO_KEY = "speak:autoAnswer";
 
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
@@ -24,19 +26,11 @@ function isTypingTarget(el: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
 }
 
-function readAutoAnswer(): boolean {
-  try {
-    return localStorage.getItem(AUTO_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 /** 此元件只在客戶端渲染（見 app/page.tsx 的 ssr:false），可以安全讀 localStorage */
 export function App() {
-  const [autoAnswer, setAutoAnswer] = useState(readAutoAnswer);
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState(getAppKey);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const onUnauthorized = () => setNeedKey(true);
@@ -44,14 +38,7 @@ export function App() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
-  const changeAuto = (v: boolean) => {
-    setAutoAnswer(v);
-    try {
-      localStorage.setItem(AUTO_KEY, v ? "1" : "0");
-    } catch {}
-  };
-
-  const q = useQuestions({ autoAnswer });
+  const q = useQuestions();
   const { addFromAudio } = q;
   const sync = useRoomSync(q.items);
 
@@ -91,9 +78,11 @@ export function App() {
   );
   const rec = useRecorder(onStop);
 
-  const latest = q.items.length ? q.items[q.items.length - 1] : null;
+  const latest = latestOf(q.items);
+  // 有題目之後就永遠是閱讀狀態；準備狀態只在開場前出現
+  const reading = q.items.length > 0;
 
-  // 全域快捷鍵：Space 錄音、Esc 停止最新一題、Cmd/Ctrl+Enter 回答最新一題
+  // 桌機才有的快捷鍵（手機用不到，但留著不礙事）：Space 錄音、Esc 停止最新一題、Cmd/Ctrl+Enter 重新生成
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = isTypingTarget(e.target);
@@ -117,37 +106,48 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [rec, q, latest]);
 
-  const ordered = [...q.items].sort((a, b) => b.seq - a.seq);
+  const menu: MenuItem[] = [
+    ...(reading ? [{ label: showHistory ? "收起歷史" : "歷史", onSelect: () => setShowHistory((h) => !h) }] : []),
+    { label: "組員觀看連結", onSelect: () => void showShareLink() },
+    ...(reading
+      ? [
+          {
+            label: "清除本場",
+            danger: true,
+            onSelect: () => {
+              if (confirm("確定清除本場所有問答紀錄？")) {
+                q.clear();
+                setShowHistory(false);
+              }
+            },
+          },
+        ]
+      : []),
+  ];
+
+  const dot = SYNC_DOT[sync.state];
 
   return (
-    <main className="page">
+    <main className={`page ${reading ? "page-reading" : ""}`}>
       <header className="topbar">
         <h1>同問同答</h1>
-        <span
-          className={`status ${SYNC_LABEL[sync.state].error ? "status-error" : ""}`}
-          title={sync.error ?? undefined}
-        >
-          {SYNC_LABEL[sync.state].dot !== "none" && (
-            <span className={`dot dot-${SYNC_LABEL[sync.state].dot}`} aria-hidden />
-          )}
-          {SYNC_LABEL[sync.state].text}
+        <span className="status" title={sync.error ?? dot.title} aria-label={dot.title}>
+          {dot.dot !== "none" && <span className={`dot dot-${dot.dot}`} aria-hidden />}
         </span>
         <span className="flex-1" />
-        <button type="button" className="btn-text" onClick={() => void showShareLink()}>
-          組員觀看連結
-        </button>
-        {q.items.length > 0 && (
-          <button
-            type="button"
-            className="btn-text"
-            onClick={() => {
-              if (confirm("確定清除本場所有問答紀錄？")) q.clear();
-            }}
-          >
-            清除本場
-          </button>
-        )}
+        <TopMenu items={menu} />
       </header>
+
+      {reading && rec.recording && (
+        <div className="recbar" role="status">
+          <span className="dot" aria-hidden />
+          <span className="recbar-label">錄音中 {fmtSeconds(rec.seconds)}</span>
+          <span className="flex-1" />
+          <button type="button" className="btn btn-primary recbar-stop" onClick={rec.stop}>
+            停止
+          </button>
+        </div>
+      )}
 
       {(shareUrl || shareMsg) && (
         <div className="card mb-3 text-sm">
@@ -199,34 +199,25 @@ export function App() {
         </div>
       )}
 
-      <Recorder
-        rec={rec}
-        autoAnswer={autoAnswer}
-        onAutoAnswerChange={changeAuto}
-        onSubmitText={(t) => void q.addFromText(t)}
-        onWarmup={q.warmup}
-      />
-
-      <div className="mt-4 flex flex-col gap-3">
-        {ordered.length === 0 && (
-          <p className="empty">
-            上台前先按「準備麥克風」和「暖機」。評審開口時按「開始錄音」，講完按停止，問題會轉成文字、再生成重點與口語稿。
-          </p>
-        )}
-        {ordered.map((item) => (
-          <QuestionCard
-            key={item.id}
-            item={item}
-            latest={latest?.id === item.id}
+      {reading ? (
+        <>
+          <Stage
+            items={q.items}
+            showHistory={showHistory}
+            emptyText=""
             onAnswer={(id) => void q.answer(id)}
             onAbort={q.abort}
             onChangeQuestion={q.setQuestion}
             onRemove={(id) => {
-              if (confirm(`刪除 Q${item.seq}？`)) q.remove(id);
+              const it = q.items.find((x) => x.id === id);
+              if (confirm(`刪除 Q${it?.seq ?? ""}？`)) q.remove(id);
             }}
           />
-        ))}
-      </div>
+          <Dock rec={rec} onSubmitText={(t) => void q.addFromText(t)} />
+        </>
+      ) : (
+        <Prep rec={rec} onSubmitText={(t) => void q.addFromText(t)} onWarmup={q.warmup} />
+      )}
     </main>
   );
 }
