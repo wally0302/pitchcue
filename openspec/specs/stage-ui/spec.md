@@ -71,7 +71,7 @@ AnswerView SHALL 以 Markdown 渲染回答；串流中且尚無內容時顯示�
 - **THEN** 畫面有兩個 `.mark` 重點與一個口語稿段落
 
 ### Requirement: 頂欄與選單
-頂欄 SHALL 顯示「PitchCue」標題、同步狀態圓點（綠＝已同步、黃＝同步中、紅＝同步失敗、未啟用或已結束不顯示，說明放在 title）、右上角 ⋯ 選單。選單項目：「組員觀看連結」永遠有；「結束本場」只在閱讀狀態且同步狀態為 idle、syncing 或 error 時有；「清除本場」（危險樣式，需確認）只在閱讀狀態有。選單在點外面或 Escape 時關閉。
+頂欄 SHALL 顯示「PitchCue」標題、同步狀態圓點（綠＝已同步、黃＝同步中、紅＝同步失敗、未啟用或已結束不顯示，說明放在 title）、右上角 ⋯ 選單。選單項目：「組員觀看連結」永遠有；「結束本場」只在閱讀狀態且同步狀態為 idle、syncing 或 error 時有；「清除本場」（危險樣式，需確認）只在閱讀狀態有；「登出」永遠有且排最後（呼叫 `POST /api/logout` 後整頁導向 `/login`）。選單在點外面或 Escape 時關閉。
 
 #### Scenario: 未設定 Redis
 - **WHEN** 同步狀態為 off
@@ -96,7 +96,7 @@ AnswerView SHALL 以 Markdown 渲染回答；串流中且尚無內容時顯示�
 - **THEN** `document.documentElement.scrollWidth` 不大於視窗寬度
 
 ### Requirement: UI smoke test
-`npm run test:ui` SHALL 以 headless Chrome 走過準備狀態、閱讀狀態、打字送出、觀看頁代碼錯誤與（有 Redis 時）輪詢與結束本場的檢查，並確認沒有 console error。
+`npm run test:ui` SHALL 以 headless Chrome 先確認未登入時主控頁導向登入頁、登入頁手機寬度不溢出、錯密碼 401、正確憑證 200、已登入時登入頁導回主控頁，再走過準備狀態、閱讀狀態、打字送出、觀看頁代碼錯誤與（有 Redis 時）輪詢與結束本場的檢查，最後登出並確認主控頁再次導向登入頁，全程沒有 console error。登入憑證取自環境變數 `SMOKE_EMAIL` / `ALLOWED_EMAILS` / `LOGIN_PASSWORD`，沒有就讀 `.env.local`；都沒有時以錯誤結束。
 
 #### Scenario: 全部通過
 - **WHEN** dev server 在跑且執行 `npm run test:ui`

@@ -1,4 +1,4 @@
-import { checkAuth, checkRoomCode } from "@/lib/auth";
+import { requireSession, checkRoomCode } from "@/lib/auth";
 import { isRoomConfigured, roomCode } from "@/lib/redis";
 import { applySync, readRoom, type SyncPayload } from "@/lib/room";
 
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
 /** 主控端同步：{ upserts, removed, clear, close } */
 export async function POST(req: Request) {
-  const denied = checkAuth(req);
+  const denied = requireSession(req);
   if (denied) return denied;
   if (!isRoomConfigured()) return notConfigured();
 

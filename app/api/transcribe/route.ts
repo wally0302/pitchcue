@@ -1,6 +1,6 @@
 import { toFile } from "openai";
 import { getOpenAI, MODELS } from "@/lib/openai";
-import { checkAuth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { GLOSSARY_TERMS } from "@/lib/knowledge.generated";
 import {
   TRANSCRIBE_PROMPT,
@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const denied = checkAuth(req);
+  const denied = requireSession(req);
   if (denied) return denied;
 
   let form: FormData;

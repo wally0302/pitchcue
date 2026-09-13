@@ -61,8 +61,8 @@
 - **THEN** 三個欄位齊全，前端可據此建立題目卡片
 
 ### Requirement: 執行環境限制
-此 route SHALL 使用 Node.js runtime，最長執行 60 秒，並套用 access-control 的密碼檢查。
+此 route SHALL 使用 Node.js runtime，最長執行 60 秒，並套用 access-control 的登入 session 檢查（`requireSession`）。
 
 #### Scenario: 未帶密碼
-- **WHEN** 設定了 `APP_PASSWORD` 但請求沒有正確的 `x-app-key`
+- **WHEN** 請求沒有帶有效的登入 session cookie
 - **THEN** 在讀取音檔前即回傳 401

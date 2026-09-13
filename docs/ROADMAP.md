@@ -28,7 +28,7 @@ PitchCue 一開始是為 2026-09-13 黑客松做的「評審問答即時提詞�
 | 開源 repo + 一鍵部署 | 完成 | 是行銷通路，也是付費的競爭者（見風險） |
 
 ### 收錢前必須補
-- 沒有帳號與多租戶：一次部署 = 一個團隊，`APP_PASSWORD` 全隊共用（`lib/auth.ts`）
+- 沒有帳號與多租戶：一次部署 = 一個團隊，目前只有單人 email + 密碼登入（`lib/session.ts`，HMAC cookie，名單在 `ALLOWED_EMAILS`）
 - 知識文件在 build 時打包（`scripts/build-knowledge.mjs` → `lib/knowledge.generated.ts`），使用者無法自己上傳
 - 沒有付費、沒有用量計量
 - Vercel Hobby 方案禁止商用，要升 Pro（約 US$20/月）
@@ -108,7 +108,7 @@ PitchCue 一開始是為 2026-09-13 黑客松做的「評審問答即時提詞�
 目標：使用者不用你介入，能自己上傳資料、練習、付錢。
 
 工程項目（依優先序）：
-1. **帳號**：email magic link（不做社群登入），取代共用密碼 `APP_PASSWORD`。
+1. **帳號**：email magic link（不做社群登入），取代目前單人 email + 密碼的 `ALLOWED_EMAILS` 名單。
 2. **執行時知識庫**：上傳 PDF/PPTX/MD → 伺服器端抽文字 → 存 Upstash → 送進 prompt。沿用 context stuffing 與 prompt cache，不做 RAG。`scripts/build-knowledge.mjs` 的邏輯搬到 API 路由。
    **設計決定**：知識庫要掛在「組織」下而不是「個人」下，支援多人共用、由管理者更新。黑客松版本是一人一份，Tier 1 需要一家公司一份、多個前線人員讀。現在就留這一層，不然走不到 Tier 1。
 3. **練習模式**：從資料生成 30-50 題可能問題，語音作答，AI 給評分與建議。這是 `build-knowledge-docs` 第 07 步的自動化，也是留存與口碑的核心。
@@ -144,7 +144,7 @@ PitchCue 一開始是為 2026-09-13 黑客松做的「評審問答即時提詞�
 
 | 缺口 | 目前 | 改成 | 相關檔案 |
 |---|---|---|---|
-| 認證 | 共用 `APP_PASSWORD` + `x-app-key` | 每人 magic link session | `lib/auth.ts` |
+| 認證 | 單人 email + 密碼、HMAC cookie session（`ALLOWED_EMAILS` 名單） | 每人 magic link session | `lib/session.ts`、`lib/auth.ts` |
 | 知識來源 | build 時打包成常數 | 上傳 → 抽文字 → Upstash → 執行時組 prompt | `scripts/build-knowledge.mjs`、`lib/knowledge.generated.ts`、`app/api/answer/route.ts` |
 | 知識庫層級 | 全站一份 | 組織 → 知識庫 → 多個成員讀；管理者可更新 | 新增資料模型 |
 | 房間 | 單一 `ROOM_CODE` | 每帳號或每組織自動產生、6 小時 TTL 維持 | `lib/room.ts`、`app/api/room/link/route.ts` |

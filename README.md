@@ -14,7 +14,7 @@
 [![React](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
 [![OpenAI](https://img.shields.io/badge/OpenAI-API-412991?style=for-the-badge&logo=openai&logoColor=white)](https://platform.openai.com)
 [![Upstash](https://img.shields.io/badge/Upstash-Redis-00E9A3?style=for-the-badge&logo=upstash&logoColor=black)](https://upstash.com)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/wally0302/pitchcue&env=OPENAI_API_KEY,APP_PASSWORD)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/wally0302/pitchcue&env=OPENAI_API_KEY,SESSION_SECRET,LOGIN_PASSWORD,ALLOWED_EMAILS)
 
 <br>
 
@@ -153,7 +153,7 @@ flowchart LR
 ```bash
 git clone https://github.com/wally0302/pitchcue.git
 cd pitchcue
-cp .env.example .env.local     # 填入 OPENAI_API_KEY
+cp .env.example .env.local     # 填入 OPENAI_API_KEY 與登入設定（三個變數）
 npm install
 npm run dev                    # 啟動前會自動把 data/ 合併成知識檔
 ```
@@ -190,7 +190,7 @@ npm run dev                    # 啟動前會自動把 data/ 合併成知識檔
 
 | 時機 | 動作 |
 |---|---|
-| 🟢 上台前 | 打開網頁 → 若有密碼先輸入 → 按「準備麥克風」（允許權限，綠燈亮）→ 按「暖機」 |
+| 🟢 上台前 | 打開網頁 → 用 email + 密碼登入 → 按「準備麥克風」（允許權限，綠燈亮）→ 按「暖機」 |
 | 🎙️ 評審開始問 | 按「開始錄音」 |
 | ⏹️ 評審問完 | 按「停止錄音」→ 卡片出現「轉錄中」→ 1~2 秒後顯示整理好的問題，接著自動生成重點與口語稿 |
 | ⏭️ 評審接著問下一題 | 按畫面最上面的「錄下一題」，同一顆鈕變成「停止 0:12」，問完再按一次停止。上一題的答案還在底下 |
@@ -256,7 +256,7 @@ vercel install upstash   # 建立 Redis，憑證自動注入 Vercel 並拉到 .e
 
 ## ☁️ 部署到 Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/wally0302/pitchcue&env=OPENAI_API_KEY,APP_PASSWORD)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/wally0302/pitchcue&env=OPENAI_API_KEY,SESSION_SECRET,LOGIN_PASSWORD,ALLOWED_EMAILS)
 
 <details>
 <summary><b>手動部署步驟</b></summary>
@@ -266,7 +266,7 @@ vercel install upstash   # 建立 Redis，憑證自動注入 Vercel 並拉到 .e
 1. 把這個 repo push 到 GitHub。
 2. Vercel → Add New Project → Import 這個 repo（Framework 會自動偵測 Next.js）。
 3. Settings → General → Node.js Version 選 **22.x**。
-4. Settings → Environment Variables 加入 `OPENAI_API_KEY`（必填）與 `APP_PASSWORD`（建議設，避免網址外流被刷額度）。
+4. Settings → Environment Variables 加入 `OPENAI_API_KEY`、`SESSION_SECRET`、`LOGIN_PASSWORD`、`ALLOWED_EMAILS`（四個都必填；缺登入設定時任何人都無法登入，避免網址外流被刷額度）。
 5. Deploy。之後只要 `git push`，Vercel 就會重新 build，並自動重新產生知識檔。
 
 或用 CLI：`vercel` → 依提示操作，再到 dashboard 設定環境變數後 `vercel --prod`。
@@ -289,7 +289,9 @@ vercel install upstash   # 建立 Redis，憑證自動注入 Vercel 並拉到 .e
 | 變數 | 說明 |
 |---|---|
 | `OPENAI_API_KEY` | **必填** |
-| `APP_PASSWORD` | 選填，設定後網頁第一次呼叫 API 會要求輸入密碼 |
+| `SESSION_SECRET` | **必填**，簽登入 cookie 用，`openssl rand -base64 32` 產生 |
+| `LOGIN_PASSWORD` | **必填**，登入密碼 |
+| `ALLOWED_EMAILS` | **必填**，允許登入的 email，逗號分隔（例：`me@example.com`） |
 | `OPENAI_TRANSCRIBE_MODEL` | 預設 `gpt-transcribe` |
 | `OPENAI_CLEAN_MODEL` | 預設 `gpt-5.6-luna`（整理問題用） |
 | `OPENAI_CHAT_MODEL` | 預設 `gpt-5.6-terra`（生成回答用） |
@@ -307,6 +309,10 @@ Next.js 16（App Router）+ React 19 + Tailwind 4，部署在 Vercel。語音辨
 data/                        專案資料（你提供）
 scripts/build-knowledge.mjs  prebuild：合併 data/ → lib/knowledge.generated.ts
 lib/prompts.ts               回答與問題整理的 prompt
+proxy.ts                     路由保護：主控頁與 API 沒登入就導向 /login 或回 401
+lib/session.ts               HMAC 簽名的登入 cookie（不用 DB）
+app/login/                   登入頁（email + 密碼）
+app/api/login/ app/api/logout/  發放 / 清除登入 cookie
 app/api/transcribe/          錄音 → 文字 → 整理成問題
 app/api/answer/              問題 + 歷史 → 串流回答
 app/api/room/                組員共享：主控端寫入 / 觀看頁輪詢

@@ -8,7 +8,7 @@ import { TopMenu, type MenuItem } from "@/components/TopMenu";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useRoomSync, type SyncState } from "@/hooks/useRoomSync";
-import { apiFetch, getAppKey, setAppKey, UNAUTHORIZED_EVENT } from "@/lib/client";
+import { apiFetch } from "@/lib/client";
 
 // 同步狀態只用一顆小圓點表示，文字放在 title 裡
 const SYNC_DOT: Record<SyncState, { title: string; dot: "live" | "tally" | "idle" | "none" }> = {
@@ -28,15 +28,6 @@ function isTypingTarget(el: EventTarget | null) {
 
 /** 此元件只在客戶端渲染（見 app/page.tsx 的 ssr:false），可以安全讀 localStorage */
 export function App() {
-  const [needKey, setNeedKey] = useState(false);
-  const [keyInput, setKeyInput] = useState(getAppKey);
-
-  useEffect(() => {
-    const onUnauthorized = () => setNeedKey(true);
-    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
-  }, []);
-
   const q = useQuestions();
   const { addFromAudio } = q;
   const sync = useRoomSync(q.items);
@@ -64,6 +55,13 @@ export function App() {
     setShareUrl(null);
     const ok = await sync.closeRoom();
     setShareMsg(ok ? "已結束：組員觀看頁會在幾秒內停止同步。" : "結束失敗，請再試一次。");
+  };
+  const logout = async () => {
+    try {
+      await fetch("/api/logout", { method: "POST" });
+    } catch {}
+    // 整頁跳轉而不是 router.push：讓 proxy 重新讀 cookie，並清掉客戶端狀態
+    window.location.assign(new URL("/login", window.location.origin).href);
   };
   const copyShare = async () => {
     if (!shareUrl) return;
@@ -128,6 +126,7 @@ export function App() {
           },
         ]
       : []),
+    { label: "登出", onSelect: () => void logout() },
   ];
 
   const dot = SYNC_DOT[sync.state];
@@ -168,31 +167,6 @@ export function App() {
             </div>
           )}
           {shareMsg && <p className="text-ink-2 mt-1">{shareMsg}</p>}
-        </div>
-      )}
-
-      {needKey && (
-        <div className="card mb-3">
-          <p className="text-sm text-ink-2 mb-2">這個服務有設定密碼，輸入後才能送出：</p>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              className="text-input flex-1"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="APP_PASSWORD"
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                setAppKey(keyInput.trim());
-                setNeedKey(false);
-              }}
-            >
-              儲存
-            </button>
-          </div>
         </div>
       )}
 

@@ -75,8 +75,8 @@ system prompt SHALL 要求模型：使用台灣繁體中文、以「我們」第
 - **THEN** 伺服器停止向 OpenAI 讀取，內容尾端不出現「[錯誤]」
 
 ### Requirement: 執行環境限制
-此 route SHALL 使用 Node.js runtime，最長執行 120 秒，並套用 access-control 的密碼檢查。
+此 route SHALL 使用 Node.js runtime，最長執行 120 秒，並套用 access-control 的登入 session 檢查（`requireSession`）。
 
 #### Scenario: 未帶密碼
-- **WHEN** 設定了 `APP_PASSWORD` 但請求沒有正確的 `x-app-key`
+- **WHEN** 請求沒有帶有效的登入 session cookie
 - **THEN** 在解析 body 前即回傳 401

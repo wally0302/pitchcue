@@ -1,7 +1,7 @@
 // UI smoke test：用本機 Chrome（headless）打開頁面，確認不會壞。
 // 用法：先跑 `npm run dev` 或 `npm start`，再 `npm run test:ui`（可用 BASE_URL 指定其他 port）。
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -85,7 +85,7 @@ const goto = async (path) => {
   await send("Page.navigate", { url: BASE + path }, s);
   for (let i = 0; i < 60; i++) {
     await sleep(250);
-    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .page-reading, .card .text-input')`)) break;
+    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .page-reading, .login-card, .card .text-input')`)) break;
   }
   await sleep(300);
 };
@@ -101,6 +101,36 @@ const seed = [
   },
   { id: "b", seq: 2, createdAt: 2, status: "ready", question: "第二題", answer: "", confidence: "low" },
 ];
+
+// 登入：憑證來自環境變數，沒給就從 .env.local 撈（簡單的 KEY=VALUE 解析，不加依賴）
+function envLocal(key) {
+  try {
+    const m = readFileSync(new URL("../.env.local", import.meta.url), "utf8").match(new RegExp(`^${key}=\\s*"?([^"\\n]*)`, "m"));
+    return m?.[1]?.trim();
+  } catch {
+    return undefined;
+  }
+}
+const EMAIL = process.env.SMOKE_EMAIL ?? (process.env.ALLOWED_EMAILS ?? envLocal("ALLOWED_EMAILS") ?? "").split(",")[0].trim();
+const PASSWORD = process.env.LOGIN_PASSWORD ?? envLocal("LOGIN_PASSWORD");
+if (!EMAIL || !PASSWORD) {
+  console.error("缺登入憑證：請設 ALLOWED_EMAILS / LOGIN_PASSWORD（環境變數或 .env.local）");
+  process.exit(1);
+}
+const login = (email, password) =>
+  evaluate(`fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ${JSON.stringify(JSON.stringify({ email, password }))} }).then(r => r.status)`);
+
+await goto("/");
+check("未登入：主控頁導向登入頁", await evaluate(`location.pathname === '/login' && !!document.querySelector('.login-card')`));
+check(
+  "登入頁：手機寬度沒有水平溢出",
+  await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`),
+  await evaluate(`document.documentElement.scrollWidth + ' > ' + window.innerWidth`)
+);
+check("登入：密碼錯誤回 401", (await login(EMAIL, "wrong-" + Date.now())) === 401);
+check("登入：正確憑證回 200", (await login(EMAIL, PASSWORD)) === 200);
+await goto("/login");
+check("已登入：登入頁導回主控頁", await evaluate(`location.pathname === '/'`));
 
 // 主控頁：準備狀態（沒有題目）
 await goto("/");
@@ -270,6 +300,11 @@ if (roomStatus === 503) {
   `));
   await post({ clear: true, close: true }); // 收尾：清空測試資料並關閉房間
 }
+
+// 登出：cookie 清掉後主控頁又回到登入頁
+check("登出：回 200", (await evaluate(`fetch('/api/logout', { method: 'POST' }).then(r => r.status)`)) === 200);
+await goto("/");
+check("登出後：主控頁導向登入頁", await evaluate(`location.pathname === '/login'`));
 
 check("沒有 console error / 未捕捉例外", consoleErrors.length === 0, consoleErrors.slice(0, 3).join(" | "));
 

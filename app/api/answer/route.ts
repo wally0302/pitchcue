@@ -1,6 +1,6 @@
 import type OpenAI from "openai";
 import { getOpenAI, MODELS, PROMPT_CACHE_KEY } from "@/lib/openai";
-import { checkAuth } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { ANSWER_SYSTEM } from "@/lib/prompts";
 import type { HistoryPair } from "@/lib/types";
 
@@ -10,7 +10,7 @@ export const maxDuration = 120;
 const MAX_HISTORY = 8;
 
 export async function POST(req: Request) {
-  const denied = checkAuth(req);
+  const denied = requireSession(req);
   if (denied) return denied;
 
   let body: { question?: string; history?: HistoryPair[] };

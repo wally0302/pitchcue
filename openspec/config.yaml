@@ -9,14 +9,15 @@ context: |
   - Next.js 16 App Router + React 19 + Tailwind 4 + TypeScript，部署 Vercel（Node 22）。
   - 主控頁與觀看頁都是 ssr:false 的純客戶端元件（需要麥克風、localStorage、URL 參數）。
   - OpenAI API（Responses API）：gpt-transcribe 轉錄、gpt-5.6-luna 整理問題（JSON schema 輸出）、gpt-5.6-terra 串流回答。
-  - Upstash Redis（選用）：主控端節流寫入、觀看頁輪詢；沒設定時共享功能靜默關閉。
+  - Upstash Redis（選用）：主控端節流寫入、觀看頁輪詢、登入失敗計數；沒設定時共享功能與速率限制靜默關閉。
+  - 登入：單人 email + 密碼（名單與密碼放環境變數），HMAC 簽名 cookie，不用 DB；敏感值只放 .env.local 與 Vercel，不進 repo 與 spec。
   - 專案文件放 data/，prebuild 由 scripts/build-knowledge.mjs 合併成 lib/knowledge.generated.ts，成為固定 system prompt 命中 prompt cache。
 
   目錄：
-  - app/api/transcribe, app/api/answer, app/api/room, app/api/room/link：API routes
+  - app/api/transcribe, app/api/answer, app/api/room, app/api/room/link：API routes；app/api/login, app/api/logout：登入 / 登出；app/login：登入頁
   - hooks/useRecorder（全域唯一錄音器）、hooks/useQuestions（每題獨立 pipeline + localStorage）、hooks/useRoomSync（主控端→Redis 節流同步）
-  - components/：App、Prep（準備狀態）、ActionBar（閱讀狀態頂端操作列）、Stage、QuestionCard、AnswerView、TopMenu、Viewer（觀看頁）
-  - lib/prompts.ts：所有 prompt；lib/room.ts：Redis 讀寫；lib/auth.ts：密碼與房間代碼檢查
+  - components/：App、Prep（準備狀態）、ActionBar（閱讀狀態頂端操作列）、Stage、QuestionCard、AnswerView、TopMenu、Viewer（觀看頁）、LoginForm（登入表單）
+  - lib/prompts.ts：所有 prompt；lib/room.ts：Redis 讀寫；lib/session.ts：HMAC 登入 cookie；lib/login-limit.ts：登入失敗計數（Redis）；lib/auth.ts：session 與房間代碼檢查；proxy.ts：路由保護
   - scripts/smoke-ui.mjs：headless Chrome UI smoke test（npm run test:ui，需先 npm run dev）
 
   硬性約束：

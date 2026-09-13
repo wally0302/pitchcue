@@ -6,11 +6,15 @@
 ## Requirements
 
 ### Requirement: 環境變數
-系統 SHALL 支援以下環境變數：`OPENAI_API_KEY`（必填）、`APP_PASSWORD`（選填，主控端密碼）、`OPENAI_TRANSCRIBE_MODEL`（預設 `gpt-transcribe`）、`OPENAI_CLEAN_MODEL`（預設 `gpt-5.6-luna`）、`OPENAI_CHAT_MODEL`（預設 `gpt-5.6-terra`）、`PROMPT_CACHE_KEY`（預設 `hackathon-qa-v1`）、`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` 或 `KV_REST_API_URL` / `KV_REST_API_TOKEN`（選填）、`ROOM_CODE`（預設 `demo`）、`NEXT_PUBLIC_SITE_URL`（選填，自架時的站台網址）。`.env.example` SHALL 列出全部並註明用途。
+系統 SHALL 支援以下環境變數：`OPENAI_API_KEY`（必填）、`SESSION_SECRET` / `LOGIN_PASSWORD` / `ALLOWED_EMAILS`（登入設定，三個都必填，缺任一個登入即停用）、`OPENAI_TRANSCRIBE_MODEL`（預設 `gpt-transcribe`）、`OPENAI_CLEAN_MODEL`（預設 `gpt-5.6-luna`）、`OPENAI_CHAT_MODEL`（預設 `gpt-5.6-terra`）、`PROMPT_CACHE_KEY`（預設 `hackathon-qa-v1`）、`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` 或 `KV_REST_API_URL` / `KV_REST_API_TOKEN`（選填）、`ROOM_CODE`（預設 `demo`）、`NEXT_PUBLIC_SITE_URL`（選填，自架時的站台網址）。`.env.example` SHALL 列出全部並註明用途。
 
-#### Scenario: 只填 API key
-- **WHEN** 只設定 `OPENAI_API_KEY`
-- **THEN** 錄音、轉錄、回答全部可用；無密碼、無組員共享
+#### Scenario: 填 API key 與登入設定
+- **WHEN** 設定 `OPENAI_API_KEY` 與三個登入變數
+- **THEN** 登入後錄音、轉錄、回答全部可用；無組員共享
+
+#### Scenario: 缺登入設定
+- **WHEN** `SESSION_SECRET`、`LOGIN_PASSWORD`、`ALLOWED_EMAILS` 任一未設定
+- **THEN** `POST /api/login` 回傳 503 並說明要設哪些變數；主控頁仍導向 `/login`，受保護 API 仍回 401（fail closed，不會因為忘了設就全開）
 
 #### Scenario: 資料大改後
 - **WHEN** 更新 `PROMPT_CACHE_KEY` 的值
@@ -24,7 +28,7 @@ OpenAI 客戶端 SHALL 在第一次使用時才建立，避免 build 階段沒�
 - **THEN** build 成功，錯誤延後到第一次呼叫 API 時才發生
 
 ### Requirement: 執行環境
-專案 SHALL 要求 Node.js 22，API routes 使用 Node.js runtime；`/api/transcribe` maxDuration 60 秒、`/api/answer` 120 秒、`/api/room` 30 秒。
+專案 SHALL 要求 Node.js 22，API routes 使用 Node.js runtime；`/api/transcribe` maxDuration 60 秒、`/api/answer` 120 秒、`/api/room` 30 秒；`/api/login`、`/api/logout` 與 `proxy.ts` 使用預設值（proxy 不得宣告 runtime，Next 16 會拋錯）。
 
 #### Scenario: Vercel 部署
 - **WHEN** Vercel 專案 Node 版本設為 22.x 且填入環境變數

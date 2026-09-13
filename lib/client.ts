@@ -1,32 +1,13 @@
 "use client";
 
-const KEY_STORAGE = "speak:key";
-export const UNAUTHORIZED_EVENT = "speak:unauthorized";
-
-export function getAppKey(): string {
-  try {
-    return localStorage.getItem(KEY_STORAGE) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-export function setAppKey(v: string) {
-  try {
-    if (v) localStorage.setItem(KEY_STORAGE, v);
-    else localStorage.removeItem(KEY_STORAGE);
-  } catch {}
-}
-
-/** fetch 包裝：自動帶密碼 header；401 時廣播事件讓頁面顯示密碼欄 */
+/** fetch 包裝：401（未登入或登入過期）就導向登入頁，登入後接續原本的頁面 */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const key = getAppKey();
-  if (key) headers.set("x-app-key", key);
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, init);
   if (res.status === 401) {
-    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
-    throw new Error("需要密碼：請在上方輸入密碼後按「重試」");
+    const next = window.location.pathname + window.location.search;
+    // 整頁跳轉而不是 router.push：讓 proxy 重新讀 cookie，並清掉客戶端狀態
+    window.location.assign(new URL(`/login?next=${encodeURIComponent(next)}`, window.location.origin).href);
+    throw new Error("需要登入，正在前往登入頁…");
   }
   return res;
 }

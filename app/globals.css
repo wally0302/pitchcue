@@ -520,6 +520,17 @@
     color: var(--color-ink-2);
     max-width: 32em;
   }
+
+  /* 登入頁 */
+  .login-card {
+    max-width: 24em;
+    margin-top: 24px;
+  }
+  .login-error {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-tally);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
