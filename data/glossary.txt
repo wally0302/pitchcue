@@ -1,3 +1,74 @@
+# 語音辨識關鍵詞：前 50 個進 ASR keywords，全部進問題整理詞彙表。同音易錯的法律詞放最前面。
+訴願
+不受理
+訴願法
+承辦人
+法制局
+訴願審議委員會
+原處分機關
+訴願人
+訴願書
+答辯書
+決定書
+原處分書
+逾期
+補正
+教示
+送達
+寄存送達
+公示送達
+在途期間
+利害關係人
+函釋
+釋字
+判解
+位階
+爭點
+主文
+卷證
+稽核軌跡
+第77條
+第56條
+第14條
+第62條
+行政程序法
+行政罰法
+洗錢防制法
+廢棄物清理法
+空氣污染防制法
+建築法
+政府資訊公開法
+Bedrock
+OpenSearch Serverless
+Claude Sonnet
+Claude Haiku
+Titan Embeddings
+Lambda
+DynamoDB
+API Gateway
+CloudFront
+Cognito
+Guardrails
+Step Functions
+Textract
+Knowledge Base
+混合檢索
+BM25
+向量
+Serverless
+RAG
+RPS
+OCU
+OCR
+PII
+JWT
+Levenshtein
+BEIR
+used_ai
+Recall
+macro-F1
+prompt
+token
+Human-in-the-loop
 黑客松
 MVP
-RAG
