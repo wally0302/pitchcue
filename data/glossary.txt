@@ -3,6 +3,10 @@
 不受理
 訴願法
 承辦人
+訴願快速拆解平台
+黃魚的楓狗
+裁處權時效
+防火門
 法制局
 訴願審議委員會
 原處分機關
@@ -72,3 +76,20 @@ token
 Human-in-the-loop
 黑客松
 MVP
+AI Context 管理
+知識庫前置作業
+行政罰法第27條
+行政罰法第28條
+訴願法第79條
+訴願法第81條
+公共安全檢查
+簽證
+資訊分離原則
+割裂處理
+告誡處分
+回復原狀
+Object Lock
+Versioning
+legal-authorities
+law-articles
+case-reasons
