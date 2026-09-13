@@ -14,3 +14,5 @@
 
 目前內容：`00` 到 `07` 是「訴願案件助審系統」（2026 新北市 AI 黑客松）的作弊文件。
 數字與說法衝突時以 `00-回答規則與數字速查.md` 為準；改了 `data/` 之後記得換 `PROMPT_CACHE_KEY`。
+
+要把新專案或新簡報寫進這裡，用 skill `/build-knowledge-docs`（規則、結構、驗證腳本都在 `.claude/skills/build-knowledge-docs/`）。
