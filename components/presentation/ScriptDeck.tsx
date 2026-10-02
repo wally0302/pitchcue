@@ -44,6 +44,7 @@ export function ScriptDeck({
   const remaining = durationSeconds - elapsedSeconds;
   const timerState = remaining < 0 ? "overtime" : remaining <= 15 ? "critical" : remaining <= 60 ? "warning" : "normal";
   const timerText = remaining < 0 ? `+${fmtSeconds(Math.abs(remaining))}` : fmtSeconds(remaining);
+  const isDenseSlide = slide.paragraphs.join("").length > 400;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -105,7 +106,11 @@ export function ScriptDeck({
 
       {wakeLockError && <p className="wake-lock-warning">{wakeLockError}</p>}
 
-      <article className="script-page" key={slide.id} aria-labelledby={`slide-${slide.id}`}>
+      <article
+        className={`script-page${isDenseSlide ? " script-page-dense" : ""}`}
+        key={slide.id}
+        aria-labelledby={`slide-${slide.id}`}
+      >
         <header className="script-heading">
           <div>
             <p>P{slide.page}</p>

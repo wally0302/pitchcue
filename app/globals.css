@@ -402,6 +402,14 @@
   .script-font-small .script-copy {
     margin-top: 10px;
   }
+  .script-font-small .script-page-dense .script-copy {
+    margin-top: 7px;
+  }
+  .script-font-small .script-page-dense .script-copy p {
+    margin-bottom: 0.08em;
+    font-size: 14px;
+    line-height: 1.18;
+  }
   .script-font-medium .script-copy p {
     font-size: 23px;
   }
