@@ -6,6 +6,7 @@ import { fmtSeconds } from "@/lib/format";
 
 type SetupProps = {
   rec: RecorderApi;
+  slideCount: number;
   durationSeconds: number;
   onDurationChange: (seconds: number) => void;
   onWarmup: () => Promise<void>;
@@ -21,6 +22,7 @@ const WARM_LABEL = {
 
 export function PresentationSetup({
   rec,
+  slideCount,
   durationSeconds,
   onDurationChange,
   onWarmup,
@@ -43,7 +45,7 @@ export function PresentationSetup({
   return (
     <section className="presentation-setup" aria-labelledby="presentation-setup-title">
       <p className="presentation-eyebrow">明天上台模式</p>
-      <h2 id="presentation-setup-title">揪甘心｜15 頁講稿</h2>
+      <h2 id="presentation-setup-title">揪甘心｜{slideCount} 頁講稿</h2>
       <p className="presentation-setup-copy">先確認麥克風與 AI，再開始六分鐘簡報。開始後會清除上一場問答。</p>
 
       <div className="duration-control" aria-label="簡報總時間">

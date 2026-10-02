@@ -233,6 +233,7 @@ export function App() {
       {session.screen === "setup" && (
         <PresentationSetup
           rec={rec}
+          slideCount={presentation.slides.length}
           durationSeconds={session.durationSeconds}
           onDurationChange={session.setDurationSeconds}
           onWarmup={q.warmup}
