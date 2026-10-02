@@ -1,7 +1,7 @@
 // UI smoke test：用本機 Chrome（headless）打開頁面，確認不會壞。
 // 用法：先跑 `npm run dev` 或 `npm start`，再 `npm run test:ui`（可用 BASE_URL 指定其他 port）。
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -85,7 +85,7 @@ const goto = async (path) => {
   await send("Page.navigate", { url: BASE + path }, s);
   for (let i = 0; i < 60; i++) {
     await sleep(250);
-    if (await evaluate(`!!document.querySelector('.prep, .actionbar, .page-reading, .login-card, .card .text-input')`)) break;
+    if (await evaluate(`!!document.querySelector('.presentation-setup, .script-deck, .prep, .actionbar, .page-reading, .login-card, .card .text-input')`)) break;
   }
   await sleep(300);
 };
@@ -132,20 +132,88 @@ check("登入：正確憑證回 200", (await login(EMAIL, PASSWORD)) === 200);
 await goto("/login");
 check("已登入：登入頁導回主控頁", await evaluate(`location.pathname === '/'`));
 
-// 主控頁：準備狀態（沒有題目）
+// 主控頁：簡報準備狀態
+await evaluate(`localStorage.removeItem('speak:session'); localStorage.removeItem('pitchcue:presentation:session:v1')`);
 await goto("/");
-check("準備狀態：大顆錄音鈕", await evaluate(`!!document.querySelector('.prep .btn-record')`));
-check("準備狀態：說明文案", await evaluate(`!!document.querySelector('.prep .empty')`));
-check("準備狀態：沒有頂端操作列", await evaluate(`!document.querySelector('.actionbar')`));
+check("簡報準備：顯示 15 頁講稿與 6 分鐘", await evaluate(`
+  document.querySelector('.presentation-setup')?.textContent.includes('15 頁講稿') &&
+  document.querySelector('.duration-stepper strong')?.textContent === '06:00'
+`));
+check("簡報準備：麥克風與 AI 暖機檢查", await evaluate(`document.querySelectorAll('.preflight-item').length === 2`));
+check("簡報準備：尚未完成檢查時不能開始", await evaluate(`document.querySelector('.presentation-start')?.disabled === true`));
+check("簡報準備：沒有 Q&A 操作列", await evaluate(`!document.querySelector('.actionbar')`));
 check("沒有自動回答開關", await evaluate(`!document.querySelector('input[type=checkbox]')`));
 check(
-  "手機寬度沒有水平溢出",
+  "簡報準備：手機寬度沒有水平溢出",
   await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`),
   await evaluate(`document.documentElement.scrollWidth + ' > ' + window.innerWidth`)
 );
 
+// 模擬意外重整留下的簡報 session：先顯示恢復，再進入 P3。
+const presentationSession = {
+  version: 1,
+  screen: "script",
+  slideIndex: 2,
+  durationSeconds: 360,
+  elapsedSeconds: 72,
+  timerRunning: true,
+  fontSize: "medium",
+};
+await evaluate(`localStorage.setItem('pitchcue:presentation:session:v1', ${JSON.stringify(JSON.stringify(presentationSession))})`);
+await goto("/");
+check("簡報恢復：顯示原頁與已用時間", await evaluate(`
+  document.querySelector('.recovery-card')?.textContent.includes('P3') &&
+  document.querySelector('.recovery-card')?.textContent.includes('01:12')
+`));
+await evaluate(`document.querySelector('.recovery-actions .btn-primary').click()`);
+await sleep(300);
+check("講稿：恢復到 P3 並顯示舞台提示", await evaluate(`
+  document.querySelector('.script-heading')?.textContent.includes('多人聚會最大的摩擦') &&
+  document.querySelector('.speaker-notes')?.textContent.includes('講完就翻頁')
+`));
+check("講稿：有倒數、三段字級與大型翻頁列", await evaluate(`
+  !!document.querySelector('.script-timer') &&
+  document.querySelectorAll('.font-switch button').length === 3 &&
+  document.querySelectorAll('.script-nav button').length === 3 &&
+  [...document.querySelectorAll('.script-nav button')].every(b => b.getBoundingClientRect().height >= 48)
+`));
+check("講稿：手機寬度沒有水平溢出", await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`));
+
+// 點頁碼開清單，直接跳 P15。
+await evaluate(`document.querySelector('.script-page-picker').click()`);
+await sleep(100);
+check("講稿：跳頁清單完整顯示 15 頁", await evaluate(`document.querySelectorAll('.slide-picker-list button').length === 15`));
+await evaluate(`
+  [...document.querySelectorAll('.slide-picker-list button')].find(b => b.textContent.includes('P15'))?.click()
+`);
+await sleep(100);
+check("講稿：可直接跳到 P15", await evaluate(`document.querySelector('.script-heading')?.textContent.includes('Closing')`));
+await evaluate(`document.querySelector('.font-switch button[aria-label="大字"]').click()`);
+check("講稿：可切換大字", await evaluate(`document.querySelector('.script-deck').classList.contains('script-font-large')`));
+await evaluate(`document.querySelector('.script-timer').click()`);
+check("講稿：可暫停計時", await evaluate(`document.querySelector('.script-timer span')?.textContent === '已暫停'`));
+await evaluate(`document.querySelector('.script-nav-finish').click()`);
+await sleep(150);
+check("P15：進入尚無題目的 Q&A 準備畫面", await evaluate(`!!document.querySelector('.prep .btn-record') && !document.querySelector('.script-deck')`));
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+check("Q&A：選單可以返回講稿", await evaluate(`
+  [...document.querySelectorAll('.menu-item')].some(b => b.textContent.includes('返回講稿'))
+`));
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent.includes('返回講稿')).click()`);
+await sleep(100);
+check("返回講稿：保留 P15 與暫停的計時", await evaluate(`
+  document.querySelector('.script-heading')?.textContent.includes('Closing') &&
+  document.querySelector('.script-timer span')?.textContent === '已暫停'
+`));
+if (process.env.SCREENSHOT_PATH) {
+  const shot = await send("Page.captureScreenshot", { format: "png" }, s);
+  writeFileSync(process.env.SCREENSHOT_PATH, Buffer.from(shot.result.data, "base64"));
+}
+
 // 主控頁：閱讀狀態（有題目）
 await evaluate(`localStorage.setItem("speak:session", ${JSON.stringify(JSON.stringify(seed))})`);
+await evaluate(`localStorage.setItem('pitchcue:presentation:session:v1', ${JSON.stringify(JSON.stringify({ ...presentationSession, screen: "qa", slideIndex: 14, elapsedSeconds: 350, timerRunning: false }))})`);
 await goto("/");
 check("閱讀狀態：準備區消失", await evaluate(`!document.querySelector('.prep')`));
 check("閱讀狀態：一次顯示所有題目", (await evaluate(`document.querySelectorAll('.card').length`)) === 2);

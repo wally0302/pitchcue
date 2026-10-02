@@ -1,10 +1,12 @@
-// prebuild: 把 data/*.md, *.txt（除了 README.md / glossary.txt）合併成 lib/knowledge.generated.ts
+// prebuild: 把目前揪甘心專案的知識文件合併成 lib/knowledge.generated.ts。
+// 不掃描 content/projects 的上層，避免其他專案（例如法律專案）誤混進同一份 prompt。
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dataDir = join(root, "data");
+const projectId = "jugansin";
+const dataDir = join(root, "content", "projects", projectId, "knowledge");
 const outFile = join(root, "lib", "knowledge.generated.ts");
 
 const EXCLUDE = new Set(["README.md", "glossary.txt"]);
@@ -32,7 +34,7 @@ if (existsSync(glossaryPath)) {
 }
 
 const out = `// 此檔由 scripts/build-knowledge.mjs 自動產生，請勿手動編輯。
-// 來源：data/ 下的 ${files.length} 份文件、${glossary.length} 個詞彙。
+// 來源：content/projects/${projectId}/knowledge/ 下的 ${files.length} 份文件、${glossary.length} 個詞彙。
 export const KNOWLEDGE_FILES: string[] = ${JSON.stringify(files)};
 export const KNOWLEDGE_MD: string = ${JSON.stringify(knowledge)};
 export const GLOSSARY_TERMS: string[] = ${JSON.stringify(glossary)};
@@ -45,5 +47,5 @@ console.log(
 );
 // 上台前最容易漏掉的一件事：真實資料還沒放進來
 if (files.length === 0 || (files.length === 1 && files[0] === "example.md")) {
-  console.warn("[knowledge] 警告：data/ 只有範例文件，AI 不知道你的專案。把 data/templates/ 複製出來填好再上台。");
+  console.warn(`[knowledge] 警告：${dataDir} 只有範例文件，AI 不知道你的專案。請先補齊知識文件。`);
 }

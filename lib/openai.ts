@@ -18,5 +18,5 @@ export const MODELS = {
   chat: process.env.OPENAI_CHAT_MODEL || "gpt-5.6-terra",
 } as const;
 
-/** 部署後改了 data/ 內容時把這個值往上加，避免命中舊快取路由 */
-export const PROMPT_CACHE_KEY = process.env.PROMPT_CACHE_KEY || "hackathon-qa-v1";
+/** 部署後改了目前專案的 knowledge/ 內容時把這個值往上加，避免命中舊快取路由 */
+export const PROMPT_CACHE_KEY = process.env.PROMPT_CACHE_KEY || "jugansin-qa-v1";

@@ -5,10 +5,17 @@ import { Prep } from "@/components/Prep";
 import { ActionBar } from "@/components/ActionBar";
 import { Stage, latestOf } from "@/components/Stage";
 import { TopMenu, type MenuItem } from "@/components/TopMenu";
+import { PresentationRecovery, PresentationSetup } from "@/components/presentation/PresentationSetup";
+import { ScriptDeck } from "@/components/presentation/ScriptDeck";
 import { useRecorder } from "@/hooks/useRecorder";
+import { usePresentationSession } from "@/hooks/usePresentationSession";
 import { useQuestions } from "@/hooks/useQuestions";
 import { useRoomSync, type SyncState } from "@/hooks/useRoomSync";
 import { apiFetch } from "@/lib/client";
+import type { PresentationScript } from "@/lib/presentation/types";
+import presentationJson from "@/content/projects/jugansin/presentation/script.zh-Hant-TW.json";
+
+const presentation = presentationJson as PresentationScript;
 
 // 同步狀態只用一顆小圓點表示，文字放在 title 裡
 const SYNC_DOT: Record<SyncState, { title: string; dot: "live" | "tally" | "idle" | "none" }> = {
@@ -31,6 +38,7 @@ export function App() {
   const q = useQuestions();
   const { addFromAudio } = q;
   const sync = useRoomSync(q.items);
+  const session = usePresentationSession(presentation.defaultDurationSeconds, presentation.slides.length);
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
@@ -82,12 +90,13 @@ export function App() {
   const rec = useRecorder(onStop);
 
   const latest = latestOf(q.items);
-  // 有題目之後就永遠是閱讀狀態；準備狀態只在開場前出現
+  // Q&A 內有題目之後進入閱讀狀態；簡報與 Q&A 模式由 presentation session 分開管理。
   const reading = q.items.length > 0;
 
   // 桌機才有的快捷鍵（手機用不到，但留著不礙事）：Space 錄音、Esc 停止最新一題、Cmd/Ctrl+Enter 重新生成
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (session.screen !== "qa") return;
       const typing = isTypingTarget(e.target);
       if (e.code === "Space" && !typing) {
         e.preventDefault();
@@ -107,9 +116,36 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rec, q, latest]);
+  }, [rec, q, latest, session.screen]);
 
-  const menu: MenuItem[] = [
+  const startPresentation = () => {
+    // 明天版的明確取捨：開始新簡報就直接清掉上一場 Q&A。
+    q.clear();
+    session.begin();
+  };
+
+  const restartPresentation = () => {
+    q.clear();
+    session.begin();
+  };
+
+  const restartFromRecovery = () => {
+    q.clear();
+    session.resetToSetup();
+  };
+
+  const enterQa = (confirmEarly: boolean) => {
+    if (confirmEarly && !confirm("簡報還沒到最後一頁，確定要提前進入 Q&A？")) return;
+    session.enterQa();
+  };
+
+  const returnToScript = () => {
+    if (rec.recording) rec.stop();
+    session.returnToScript();
+  };
+
+  const qaMenu: MenuItem[] = [
+    ...(session.hasPresentation ? [{ label: "返回講稿", onSelect: returnToScript }] : []),
     { label: "組員觀看連結", onSelect: () => void showShareLink() },
     // 有共享在跑（不是未啟用／未同步／已結束）才需要「結束本場」
     ...(reading && (sync.state === "idle" || sync.state === "syncing" || sync.state === "error")
@@ -129,23 +165,47 @@ export function App() {
     { label: "登出", onSelect: () => void logout() },
   ];
 
+  const scriptMenu: MenuItem[] = [
+    {
+      label: session.timerRunning ? "暫停計時" : "繼續計時",
+      onSelect: session.timerRunning ? session.pauseTimer : session.resumeTimer,
+    },
+    ...(session.slideIndex < presentation.slides.length - 1
+      ? [{ label: "提前進入 Q&A", onSelect: () => enterQa(true) }]
+      : []),
+    {
+      label: "從 P1 重新開始",
+      danger: true,
+      onSelect: () => {
+        if (confirm("確定重新開始？目前的計時與所有問答都會清除。")) restartPresentation();
+      },
+    },
+    { label: "登出", onSelect: () => void logout() },
+  ];
+
+  const menu = session.screen === "qa" ? qaMenu : session.screen === "script" ? scriptMenu : [
+    { label: "登出", onSelect: () => void logout() },
+  ];
+
   const dot = SYNC_DOT[sync.state];
 
   return (
     <main className="page">
       <header className="topbar">
-        <h1>PitchCue</h1>
-        <span className="status" title={sync.error ?? dot.title} aria-label={dot.title}>
-          {dot.dot !== "none" && <span className={`dot dot-${dot.dot}`} aria-hidden />}
-        </span>
+        <h1>{session.screen === "qa" ? "PitchCue" : "揪甘心講稿"}</h1>
+        {session.screen === "qa" && (
+          <span className="status" title={sync.error ?? dot.title} aria-label={dot.title}>
+            {dot.dot !== "none" && <span className={`dot dot-${dot.dot}`} aria-hidden />}
+          </span>
+        )}
         <span className="flex-1" />
         <TopMenu items={menu} />
       </header>
 
       {/* 錄音鈕固定在最上面：開始／停止同一顆、同一個位置，打字備援也從這排展開 */}
-      {reading && <ActionBar rec={rec} onSubmitText={(t) => void q.addFromText(t)} />}
+      {session.screen === "qa" && reading && <ActionBar rec={rec} onSubmitText={(t) => void q.addFromText(t)} />}
 
-      {(shareUrl || shareMsg) && (
+      {session.screen === "qa" && (shareUrl || shareMsg) && (
         <div className="card mb-3 text-sm">
           {shareUrl && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -170,21 +230,58 @@ export function App() {
         </div>
       )}
 
-      {reading ? (
-        <Stage
-          items={q.items}
-          emptyText=""
-          onAnswer={(id) => void q.answer(id)}
-          onAbort={q.abort}
-          onChangeQuestion={q.setQuestion}
-          onRemove={(id) => {
-            const it = q.items.find((x) => x.id === id);
-            if (confirm(`刪除 Q${it?.seq ?? ""}？`)) q.remove(id);
-          }}
+      {session.screen === "setup" && (
+        <PresentationSetup
+          rec={rec}
+          durationSeconds={session.durationSeconds}
+          onDurationChange={session.setDurationSeconds}
+          onWarmup={q.warmup}
+          onStart={startPresentation}
         />
-      ) : (
-        <Prep rec={rec} onSubmitText={(t) => void q.addFromText(t)} onWarmup={q.warmup} />
       )}
+
+      {session.screen === "recover" && (
+        <PresentationRecovery
+          page={presentation.slides[session.slideIndex]?.page ?? 1}
+          title={presentation.slides[session.slideIndex]?.title ?? presentation.slides[0].title}
+          elapsedSeconds={session.elapsedSeconds}
+          durationSeconds={session.durationSeconds}
+          onContinue={session.continueSession}
+          onRestart={restartFromRecovery}
+        />
+      )}
+
+      {session.screen === "script" && (
+        <ScriptDeck
+          presentation={presentation}
+          slideIndex={session.slideIndex}
+          elapsedSeconds={session.elapsedSeconds}
+          durationSeconds={session.durationSeconds}
+          timerRunning={session.timerRunning}
+          fontSize={session.fontSize}
+          wakeLockError={session.wakeLockError}
+          onSlideChange={session.setSlideIndex}
+          onToggleTimer={session.timerRunning ? session.pauseTimer : session.resumeTimer}
+          onFontSizeChange={session.setFontSize}
+          onEnterQa={() => enterQa(false)}
+        />
+      )}
+
+      {session.screen === "qa" && (reading ? (
+          <Stage
+            items={q.items}
+            emptyText=""
+            onAnswer={(id) => void q.answer(id)}
+            onAbort={q.abort}
+            onChangeQuestion={q.setQuestion}
+            onRemove={(id) => {
+              const it = q.items.find((x) => x.id === id);
+              if (confirm(`刪除 Q${it?.seq ?? ""}？`)) q.remove(id);
+            }}
+          />
+        ) : (
+          <Prep rec={rec} onSubmitText={(t) => void q.addFromText(t)} onWarmup={q.warmup} />
+        ))}
     </main>
   );
 }

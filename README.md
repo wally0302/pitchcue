@@ -90,7 +90,7 @@ flowchart LR
 <td width="50%" valign="top">
 
 ### 📚 只根據你的文件回答
-把專案簡介、技術架構、商業模式、常見問題放進 `data/`，AI 的回答完全以此為依據。文件裡沒有的數據，它會誠實說「目前沒有實際數據」再給出方向，**不會編**。
+把專案簡介、技術架構、商業模式、常見問題放進目前專案的 `content/projects/<project>/knowledge/`，AI 的回答完全以此為依據。文件裡沒有的數據，它會誠實說「目前沒有實際數據」再給出方向，**不會編**。
 
 </td>
 <td width="50%" valign="top">
@@ -155,20 +155,20 @@ git clone https://github.com/wally0302/pitchcue.git
 cd pitchcue
 cp .env.example .env.local     # 填入 OPENAI_API_KEY 與登入設定（三個變數）
 npm install
-npm run dev                    # 啟動前會自動把 data/ 合併成知識檔
+npm run dev                    # 啟動前會自動把目前專案的 knowledge/ 合併成知識檔
 ```
 
 打開 http://localhost:3000，localhost 可以直接用麥克風，不需要 HTTPS。
 
-第一次跑會用 `data/example.md` 的佔位內容，先錄一題感受流程，再放入真實資料。
+目前啟用的「揪甘心」Q&A 資料位於 `content/projects/jugansin/knowledge/`；舊法律 Q&A 資料保留在 `content/projects/legal/knowledge/`，建置時只會載入揪甘心，避免 prompt 混用。
 
 <br>
 
 ## 📂 準備專案資料
 
-> **這一步比任何功能都重要。** `data/` 沒放真實資料時，AI 只會說「我們目前沒有實際數據」。
+> **這一步比任何功能都重要。** 目前專案的 `knowledge/` 沒放真實資料時，AI 只會說「我們目前沒有實際數據」。
 
-把資料放進 `data/`，檔案會依檔名排序後全部讀進 AI 的 prompt：
+把資料放進 `content/projects/<project>/knowledge/`，檔案會依檔名排序後全部讀進 AI 的 prompt：
 
 | 檔案 | 寫什麼 | 對應評審在意的 |
 |---|---|---|
@@ -178,19 +178,20 @@ npm run dev                    # 啟動前會自動把 data/ 合併成知識檔
 | `04-常見問題.md` | 你自己會怎麼回答評審最可能問的問題 | 全部 |
 | `glossary.txt` | 一行一個專有名詞 | 讓語音辨識不會聽錯 |
 
-`data/templates/` 有四份填空範本，複製到 `data/` 根目錄後填寫。**時間不夠就先填 `04-常見問題.md`**，它等於把「你自己會怎麼答」直接餵給 AI。
+若未來要切換專案，先在 `content/projects/<project>/knowledge/` 準備完整資料，再修改 `scripts/build-knowledge.mjs` 的 `projectId`；不要把不同專案文件放進同一個資料夾。
 
-放入真實資料後請刪掉 `data/example.md`。詳細說明見 [`data/README.md`](data/README.md)。
+詳細說明見 [`content/projects/jugansin/knowledge/README.md`](content/projects/jugansin/knowledge/README.md)。
 
 <br>
 
 ## 🎤 上台流程
 
-頁面有兩個狀態：**準備**（還沒有題目）和**閱讀**（有題目之後）。閱讀狀態永遠只顯示最新一題、字放大，方便自己邊看邊講或組員看著講。
+頁面先進入 **講稿準備／閱讀**，講完再切入 **即時 Q&A**。Q&A 閱讀狀態永遠放大最新一題，方便自己邊看邊講或組員看著講。
 
 | 時機 | 動作 |
 |---|---|
-| 🟢 上台前 | 打開網頁 → 用 email + 密碼登入 → 按「準備麥克風」（允許權限，綠燈亮）→ 按「暖機」 |
+| 🟢 上台前 | 打開網頁 → 登入 → 設定簡報時間 → 準備麥克風 → 暖機 AI → 按「開始簡報」 |
+| 📖 簡報中 | 左右滑動或按底部按鈕翻頁；點頁碼可快速跳頁；P15 按「進入 Q&A」 |
 | 🎙️ 評審開始問 | 按「開始錄音」 |
 | ⏹️ 評審問完 | 按「停止錄音」→ 卡片出現「轉錄中」→ 1~2 秒後顯示整理好的問題，接著自動生成重點與口語稿 |
 | ⏭️ 評審接著問下一題 | 按畫面最上面的「錄下一題」，同一顆鈕變成「停止 0:12」，問完再按一次停止。上一題的答案還在底下 |
@@ -295,7 +296,7 @@ vercel install upstash   # 建立 Redis，憑證自動注入 Vercel 並拉到 .e
 | `OPENAI_TRANSCRIBE_MODEL` | 預設 `gpt-transcribe` |
 | `OPENAI_CLEAN_MODEL` | 預設 `gpt-5.6-luna`（整理問題用） |
 | `OPENAI_CHAT_MODEL` | 預設 `gpt-5.6-terra`（生成回答用） |
-| `PROMPT_CACHE_KEY` | 預設 `hackathon-qa-v1`，資料大改後可換值 |
+| `PROMPT_CACHE_KEY` | 預設 `jugansin-qa-v1`，資料大改後可換值 |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | 選填，啟用組員即時觀看（Vercel Marketplace 注入的 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 也可） |
 | `ROOM_CODE` | 選填，觀看頁的房間代碼，預設 `demo` |
 
@@ -306,8 +307,8 @@ vercel install upstash   # 建立 Redis，憑證自動注入 Vercel 並拉到 .e
 Next.js 16（App Router）+ React 19 + Tailwind 4，部署在 Vercel。語音辨識、問題整理、回答生成都走 OpenAI API，回答用串流回傳。專案文件在 build 時合併成一個固定的 system prompt，命中 prompt cache 以降低延遲與成本。組員同步用 Upstash Redis 做共享狀態，主控端節流寫入、觀看頁輪詢讀取。
 
 ```
-data/                        專案資料（你提供）
-scripts/build-knowledge.mjs  prebuild：合併 data/ → lib/knowledge.generated.ts
+content/projects/            每個專案互相隔離的講稿與知識資料
+scripts/build-knowledge.mjs  prebuild：合併目前專案 knowledge/ → lib/knowledge.generated.ts
 lib/prompts.ts               回答與問題整理的 prompt
 proxy.ts                     路由保護：主控頁與 API 沒登入就導向 /login 或回 401
 lib/session.ts               HMAC 簽名的登入 cookie（不用 DB）

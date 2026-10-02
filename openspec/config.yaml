@@ -11,7 +11,7 @@ context: |
   - OpenAI API（Responses API）：gpt-transcribe 轉錄、gpt-5.6-luna 整理問題（JSON schema 輸出）、gpt-5.6-terra 串流回答。
   - Upstash Redis（選用）：主控端節流寫入、觀看頁輪詢、登入失敗計數；沒設定時共享功能與速率限制靜默關閉。
   - 登入：單人 email + 密碼（名單與密碼放環境變數），HMAC 簽名 cookie，不用 DB；敏感值只放 .env.local 與 Vercel，不進 repo 與 spec。
-  - 專案文件放 data/，prebuild 由 scripts/build-knowledge.mjs 合併成 lib/knowledge.generated.ts，成為固定 system prompt 命中 prompt cache。
+  - 專案文件依專案放在 content/projects/<project>/knowledge/，prebuild 由 scripts/build-knowledge.mjs 合併目前專案成 lib/knowledge.generated.ts，成為固定 system prompt 命中 prompt cache。
 
   目錄：
   - app/api/transcribe, app/api/answer, app/api/room, app/api/room/link：API routes；app/api/login, app/api/logout：登入 / 登出；app/login：登入頁
@@ -22,7 +22,7 @@ context: |
 
   硬性約束：
   - 零閒置流量：不在使用時整個系統不能打任何 API。只有觀看頁會主動輪詢，且必須背景不打、閒置放慢、太久停止、結束本場即停。
-  - 只根據 data/ 文件回答，不捏造數字、客戶、合作對象。
+  - 只根據目前專案的 knowledge/ 文件回答，不捏造數字、客戶、合作對象。
   - 台上場景優先：手機單手操作、錄音鈕永遠在最上面、閱讀狀態只放大最新一題。
   - 這版 Next.js 與訓練資料可能不同，改程式前先讀 node_modules/next/dist/docs/。
 
