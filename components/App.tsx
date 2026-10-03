@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Prep } from "@/components/Prep";
 import { ActionBar } from "@/components/ActionBar";
 import { Stage, latestOf } from "@/components/Stage";
@@ -42,6 +42,8 @@ export function App() {
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const [restartConfirmOpen, setRestartConfirmOpen] = useState(false);
+  const restartCancelRef = useRef<HTMLButtonElement>(null);
   const showShareLink = async () => {
     setShareMsg(null);
     try {
@@ -129,6 +131,30 @@ export function App() {
     session.begin();
   };
 
+  useEffect(() => {
+    if (!restartConfirmOpen) return;
+
+    const focusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusCancel = window.setTimeout(() => restartCancelRef.current?.focus(), 0);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setRestartConfirmOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      window.clearTimeout(focusCancel);
+      document.removeEventListener("keydown", onKey);
+      if (focusTarget && document.contains(focusTarget)) {
+        focusTarget.focus();
+      } else {
+        document.querySelector<HTMLButtonElement>('.menu-btn[aria-label="更多"]')?.focus();
+      }
+    };
+  }, [restartConfirmOpen]);
+
   const restartFromRecovery = () => {
     q.clear();
     session.resetToSetup();
@@ -176,9 +202,7 @@ export function App() {
     {
       label: "從 P1 重新開始",
       danger: true,
-      onSelect: () => {
-        if (confirm("確定重新開始？目前的計時與所有問答都會清除。")) restartPresentation();
-      },
+      onSelect: () => setRestartConfirmOpen(true),
     },
     { label: "登出", onSelect: () => void logout() },
   ];
@@ -283,6 +307,47 @@ export function App() {
         ) : (
           <Prep rec={rec} onSubmitText={(t) => void q.addFromText(t)} onWarmup={q.warmup} />
         ))}
+
+      {restartConfirmOpen && (
+        <div
+          className="restart-dialog-backdrop"
+          role="presentation"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) setRestartConfirmOpen(false);
+          }}
+        >
+          <section
+            className="restart-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="restart-dialog-title"
+            aria-describedby="restart-dialog-description"
+          >
+            <h2 id="restart-dialog-title">確定從 P1 重新開始？</h2>
+            <p id="restart-dialog-description">目前的計時與所有問答都會清除，並從第一頁重新開始。</p>
+            <div className="restart-dialog-actions">
+              <button
+                ref={restartCancelRef}
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setRestartConfirmOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  setRestartConfirmOpen(false);
+                  restartPresentation();
+                }}
+              >
+                重新開始
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

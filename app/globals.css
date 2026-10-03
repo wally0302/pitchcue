@@ -664,6 +664,47 @@
     color: var(--color-tally);
   }
 
+  /* 從 P1 重新開始：手機上不依賴原生 confirm，確保決策可見且可觸控 */
+  .restart-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: rgba(23, 24, 26, 0.46);
+  }
+  .restart-dialog {
+    width: min(100%, 28rem);
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 22px 20px 20px;
+    border: 1px solid var(--color-rule);
+    border-radius: 12px;
+    background: var(--color-paper);
+    box-shadow: 0 16px 40px rgba(23, 24, 26, 0.25);
+  }
+  .restart-dialog h2 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.3;
+  }
+  .restart-dialog p {
+    margin: 10px 0 20px;
+    color: var(--color-ink-2);
+    font-size: 16px;
+  }
+  .restart-dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .restart-dialog-actions .btn {
+    min-height: 48px;
+  }
+
   /* 提示卡 */
   .card {
     background: var(--color-paper);

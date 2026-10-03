@@ -171,6 +171,41 @@ check("講稿：恢復到 P3 且沒有舞台提示", await evaluate(`
   document.querySelector('.script-heading')?.textContent.includes('多人聚會最大的摩擦') &&
   !document.querySelector('.speaker-notes')
 `));
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent.includes('從 P1 重新開始')).click()`);
+await sleep(100);
+check("手機：從 P3 開啟重新開始確認對話框", await evaluate(`
+  (() => {
+    const dialog = document.querySelector('[role="alertdialog"]');
+    return !!dialog &&
+      dialog.getAttribute('aria-modal') === 'true' &&
+      dialog.getAttribute('aria-labelledby') &&
+      dialog.getAttribute('aria-describedby') &&
+      dialog.textContent.includes('目前的計時與所有問答都會清除');
+  })()
+`));
+const timerBeforeRestartCancel = await evaluate(`document.querySelector('.script-timer strong')?.textContent`);
+await evaluate(`document.querySelector('[role="alertdialog"] button').click()`);
+await sleep(100);
+check("手機：取消重新開始後保留 P3 與計時", await evaluate(`
+  document.querySelector('.script-heading')?.textContent.includes('多人聚會最大的摩擦') &&
+  !document.querySelector('[role="alertdialog"]') &&
+  document.querySelector('.script-timer span')?.textContent === '剩餘' &&
+  document.querySelector('.script-timer strong')?.textContent !== '06:00'
+`), `取消前剩餘 ${timerBeforeRestartCancel ?? "未知"}`);
+await evaluate(`document.querySelector('.menu-btn').click()`);
+await sleep(100);
+await evaluate(`[...document.querySelectorAll('.menu-item')].find(b => b.textContent.includes('從 P1 重新開始')).click()`);
+await sleep(100);
+await evaluate(`document.querySelector('[role="alertdialog"] button.btn-danger').click()`);
+await sleep(150);
+check("手機：確認重新開始後回到 P1 且計時重設並執行", await evaluate(`
+  document.querySelector('.script-heading')?.textContent.includes('P1') &&
+  !document.querySelector('[role="alertdialog"]') &&
+  document.querySelector('.script-timer strong')?.textContent === '06:00' &&
+  document.querySelector('.script-timer span')?.textContent === '剩餘'
+`));
 check("講稿：有倒數、三段字級與大型翻頁列", await evaluate(`
   !!document.querySelector('.script-timer') &&
   document.querySelectorAll('.font-switch button').length === 3 &&
